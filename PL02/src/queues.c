@@ -11,7 +11,6 @@
 // type 1 - ARRIVAL | type 2 - DEPARTURE
 #define ARRIVAL 1
 #define DEPARTURE 2
-#define INTERVAL 300
 #define CSVFolder "DotCSV/"
 
 void collectData (double* p_lambda, double* p_dm, int* p_m, int* p_L, int* p_K) {
@@ -51,6 +50,8 @@ int saveInCSV(char* filename, int* histogram, int hist_size) {
   for (i = 0; i < hist_size; i++) {
     fprintf(CSV, "%d, %d\n", i, histogram[i]);
   }
+  fclose(CSV);
+
   return 0;
 }
 
@@ -90,34 +91,34 @@ void calcDelayProb(double t, int tot_delay, int* hist, int h_size) {
 }
 
 int main(int argc, char* argv[]) {
-   double lambda = 0, dm = 0;
-   int m = 0, L = 0, K = 0, index = 0;
+  double lambda = 0, dm = 0;
+  int m = 0, L = 0, K = 0, index = 0;
 
-   collectData(&lambda, &dm, &m, &L, &K);
-   lambda = lambda / 60; // passing calls per hour to calls per minutes
+  collectData(&lambda, &dm, &m, &L, &K);
+  lambda = lambda / 60; // passing calls per hour to calls per minutes
 
-   double lambda_total, aux_time = 0, delay_time = 0, t = -1;
-   int i, buffer_size = L, channels = 0, arrival_events = 0, buffer_events = 0, delay_count = 0, losses = 0;
-   int hist_size = INTERVAL, *histogram;
-   char filename[50];
-   list *events = NULL, *buffer = NULL;
+  double lambda_total, aux_time = 0, delay_time = 0, t = -1;
+  int i, buffer_size = L, channels = 0, arrival_events = 0, buffer_events = 0, delay_count = 0, losses = 0;
+  int *histogram, hist_size = 0;
+  char filename[50];
+  list *events = NULL, *buffer = NULL;
 
-   srand(time(NULL));
+  srand(time(NULL));
 
-   if (stat(CSVFolder, NULL) == -1) {
-     mkdir(CSVFolder, 0777);
-   }
+  if (stat(CSVFolder, NULL) == -1) {
+   mkdir(CSVFolder, 0777);
+  }
 
-   if (!strcpy(filename, CSVFolder)){
-     perror("strcpy");
-     return -1;
-   }
+  if (!strcpy(filename, CSVFolder)){
+   perror("strcpy");
+   return -1;
+  }
 
-   strcat(filename, argv[1]);
+  strcat(filename, argv[1]);
 
-   histogram = (int*)calloc(hist_size, sizeof(int));
+  histogram = (int*)calloc(1, sizeof(int));
 
-   events = add(events, ARRIVAL, 0);
+  events = add(events, ARRIVAL, 0);
 
   // We process the list of events
   for(i = 1; i < EVENTS_LIST; i++) {
@@ -147,7 +148,15 @@ int main(int argc, char* argv[]) {
 
         delay_time += aux_time - buffer->_time;
         index = (int)((aux_time - buffer->_time)*60);
-        histogram[index > (hist_size - 1) ? hist_size - 1 : index]++;
+        if (index > hist_size) {
+          hist_size = index;
+          histogram = (int*)realloc(histogram, (hist_size * 5) * sizeof(int));
+          if (histogram == NULL) {
+            perror("realloc");
+            return -1;
+          }
+        }
+        histogram[index]++;
         delay_count++;
 
         buffer = rem(buffer);
@@ -158,15 +167,17 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  hist_size++;
+  fprintf(stderr, "index = %d | hist_size = %d\n\n", index, hist_size);
   if(saveInCSV(filename, histogram, hist_size) < 0) {
     perror("saveInCSV");
     return -1;
   }
   fprintf(stdout, "\tFile \"%s\" saved successfully\n\n", filename);
 
-  fprintf(stdout, "\nProbability of blocking (loss = %d) of customers (total arrivals = %d): B = %.3f%%\n", losses, arrival_events, losses / (float)arrival_events * 100);
-  fprintf(stdout, "\nProbability of customer service delay (buffer_events = %d): Pa = %.3f%%\n", buffer_events, buffer_events / (float)arrival_events * 100);
-  fprintf(stdout, "\nAverage customer service delay (delay_time = %.3f): Am = %.3fmin = %.3fsec\n\n", delay_time, delay_time / (float)arrival_events, delay_time / (float)(arrival_events) * 60);
+  fprintf(stdout, "\nProbability of blocking (losses = %d) of customers (total arrivals = %d): B = %.3f%%\n", losses, arrival_events, losses / (float)arrival_events * 100);
+  fprintf(stdout, "\nProbability of customer service delay (buffer events = %d): Pa = %.3f%%\n", buffer_events, buffer_events / (float)arrival_events * 100);
+  fprintf(stdout, "\nAverage customer service delay: Am = %.3fmin = %.3fsec\n\n", delay_time / (float)arrival_events, delay_time / (float)(arrival_events) * 60);
 
   while(1){
     fprintf(stdout, "\nPlease enter the value of seconds (t) to compute the probability of the delay being less than t seconds Pa(a<t) or '0' to end: ");
@@ -176,6 +187,8 @@ int main(int argc, char* argv[]) {
     }
     calcDelayProb(t, delay_count, histogram, hist_size);
   }
+
+  free(histogram);
 
   return 0;
 }
