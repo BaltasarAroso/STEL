@@ -115,8 +115,6 @@ int main(int argc, char* argv[]) {
 
    strcat(filename, argv[1]);
 
-   fprintf(stderr, "filename = %s\n", filename);
-
    histogram = (int*)calloc(hist_size, sizeof(int));
 
    events = add(events, ARRIVAL, 0);
