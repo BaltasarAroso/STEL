@@ -148,9 +148,10 @@ int main(int argc, char* argv[]) {
 
         delay_time += aux_time - buffer->_time;
         index = (int)((aux_time - buffer->_time)*60);
-        if (index > hist_size) {
-          hist_size = index;
-          histogram = (int*)realloc(histogram, (hist_size * 5) * sizeof(int));
+        if (index + 1 > hist_size) {
+          hist_size = index + 1;
+          histogram = (int*)realloc(histogram, hist_size * sizeof(int));
+          for (i = 0; i < hist_size; i++) {histogram[i] = 0;}
           if (histogram == NULL) {
             perror("realloc");
             return -1;
