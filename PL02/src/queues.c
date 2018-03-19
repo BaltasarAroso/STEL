@@ -151,7 +151,9 @@ int main(int argc, char* argv[]) {
         if (index + 1 > hist_size) {
           hist_size = index + 1;
           histogram = (int*)realloc(histogram, hist_size * sizeof(int));
-          for (i = 0; i < hist_size; i++) {histogram[i] = 0;}
+          for (i = 0; i < hist_size; i++) {
+            histogram[i] = 0;
+          }
           if (histogram == NULL) {
             perror("realloc");
             return -1;
