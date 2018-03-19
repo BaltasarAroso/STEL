@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
 
   double lambda_total, aux_time = 0, delay_time = 0, t = -1;
   int i, buffer_size = L, channels = 0, arrival_events = 0, buffer_events = 0, delay_count = 0, losses = 0;
-  int *histogram, hist_size = 0;
+  int *histogram, hist_size = 0, aux = 0;
   char filename[50];
   list *events = NULL, *buffer = NULL;
 
@@ -149,9 +149,10 @@ int main(int argc, char* argv[]) {
         delay_time += aux_time - buffer->_time;
         index = (int)((aux_time - buffer->_time)*60);
         if (index + 1 > hist_size) {
+          aux = hist_size;
           hist_size = index + 1;
           histogram = (int*)realloc(histogram, hist_size * sizeof(int));
-          for (i = 0; i < hist_size; i++) {
+          for (i = aux; i < hist_size; i++) {
             histogram[i] = 0;
           }
           if (histogram == NULL) {
@@ -170,8 +171,6 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  hist_size++;
-  fprintf(stderr, "index = %d | hist_size = %d\n\n", index, hist_size);
   if(saveInCSV(filename, histogram, hist_size) < 0) {
     perror("saveInCSV");
     return -1;
