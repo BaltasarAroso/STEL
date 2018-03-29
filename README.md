@@ -1,7 +1,7 @@
 ## STEL
 STEL (Sistemas de Telecomunicações) means **Telecommunication Systems** and it is a Curricular Unit of the MSc in Eletrical and Computer Engineering in FEUP.
 
-## 1 - Simulation of a Poisson call arrival process
+# 1 - Simulation of a Poisson call arrival process
 Consider a traffic source that generates calls with a given arrival rate lambda, according to a Poisson process.
 * a) Based on the simulation method for discrete events, and given that the distribution of the interval between call arrivals is exponential, develop a simulation program for this source, enabling it to obtain: the histogram of the interval between the arrival of consecutive calls and the estimator of the average value of the interval between consecutive calls.
 Compare the results obtained in the simulation with the theoretically predicted values, assuming a rate of lambda1 = 8 calls/second.
@@ -19,7 +19,7 @@ clang poisson_calls_b.c -o b
 ./b <file_a.csv>
 ```
 
-## 2 - Simulation of a waiting list
+# 2 - Simulation of a waiting list
 Considering a queue represented by Kendall's notation M / M / m / L / K / FCFS in which each field has the following meaning, successively:
 - M = Exponential distribution of times between customer arrivals (arrival rate of each free customer l)
 - M = Exponential distribution of service times (average service time dm)
