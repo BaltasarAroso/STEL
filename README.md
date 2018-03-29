@@ -36,3 +36,4 @@ cd 2_WaitingList
 make
 ./queues <file_name.csv>
 ```
+**Note:** After the execution of the above commands a directory is creates with the name `DotCSV` where the files _.csv_ are. In the `Graphics` and `Results` files we can see the results obtained in the different cases tested.
