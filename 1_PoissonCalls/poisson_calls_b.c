@@ -19,7 +19,7 @@ int saveInCSV(char* filename, int* histogram, int hist_size){
     perror("fopen");
     return -1;
   }
-  fprintf(CSV, "Indice, Tempo Central, Número de Chegadas (total %d)\n", ARRIVALS);
+  fprintf(CSV, "Index, Central Time, Arrival Calls (of %d)\n", ARRIVALS);
   for (i = 0; i < hist_size; i++) {
     fprintf(CSV, "%d, %lf, %d\n", i, (2*i+1)/(float)(hist_size*2), histogram[i]);
   }
@@ -32,7 +32,6 @@ int main(int argc, char* argv[]){
   double u, delta, p, curr_time = 0, old_time = 0;
 	char filename[20];
 
-	//incializar variaveis
 	histogram = (int*) calloc(hist_size, sizeof(int));
   delta = 1/(double)(deltaTIME*lambda);
 	if(!strcpy(filename, argv[1])){
@@ -40,27 +39,26 @@ int main(int argc, char* argv[]){
 		return -1;
 	}
 
-	//probabilidade de ocorrer o evento em delta
+	//probability of the event occur in delta
   p = lambda*delta;
 
-  srand(time(NULL)); /* Initialization of rand */
+  srand(time(NULL));
 
   for(i = 0; i < ARRIVALS; i++){
-    u = (float)(rand()+1)/RAND_MAX; /* Distribuição uniforme */
+    u = (float)(rand()+1)/RAND_MAX;
 
 		if(u < p) {
-      //incremento do tempo atual de acordo com o número de chegada (i)
+      //increment of the current time according to the arrival number (i)
       curr_time = i*delta;
 
-      //incremento do número de chegadas previstas
+      //increase in expected number of arrivals
 			count++;
 
-			//cálculo do índice onde colocar o valor no histograma
+      //find the index where that jump is added to in the histogram
 			index = (curr_time-old_time)/(1 / (float)(HIST_JUMP*lambda));
 
-			//se o valor de C exceder o valor máximo, colocar esses valores no indice maximo
+      //if the jump exceeds the maximum index added it in the last index
 			histogram[index > (hist_size - 1) ? hist_size - 1 : index]++;
-
 			old_time = curr_time;
 		}
   }
@@ -68,7 +66,6 @@ int main(int argc, char* argv[]){
 	fprintf(stderr, "Theoretical Value of lambda = %lf\n", (float)lambda);
 	fprintf(stderr, "Estimator of lambda = %lf\n\n", count*deltaTIME*lambda / (float)(ARRIVALS));
 
-	//guardar os valores no ficheiro.csv
 	if(saveInCSV(filename, histogram, hist_size) < 0) {
 		perror("saveInCSV");
 		return -1;
