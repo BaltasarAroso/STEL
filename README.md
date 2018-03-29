@@ -11,7 +11,7 @@ Compare the results obtained in the simulation with the theoretically predicted 
 
 ## Execution
 ```
-git clone <url>
+git clone https://github.com/BaltasarAroso/STEL.git
 cd 1_PoissonCalls
 clang poisson_calls_a.c -o a
 ./a <file_a.csv>
@@ -31,7 +31,7 @@ the code implemented as the porpused of calculate any case (Erlang-B, Erlang-C o
 
 ## Execution
 ```
-git clone <url>
+git clone https://github.com/BaltasarAroso/STEL.git
 cd 2_WaitingList
 make
 ./queues <file_name.csv>
