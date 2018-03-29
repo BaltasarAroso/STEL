@@ -1,4 +1,4 @@
-## STEL
+# STEL
 STEL (Sistemas de Telecomunicações) means **Telecommunication Systems** and it is a Curricular Unit of the MSc in Eletrical and Computer Engineering in FEUP.
 
 # 1 - Simulation of a Poisson call arrival process
@@ -9,7 +9,7 @@ Compare the results obtained in the simulation with the theoretically predicted 
 
 **Note:** In the image `time_comparator.jpg` we can see that the first case is much more faster than the second one.
 
-**Execution**
+## Execution
 ```
 git clone <url>
 cd 1_PoissonCalls
@@ -29,7 +29,7 @@ Considering a queue represented by Kendall's notation M / M / m / L / K / FCFS i
 - FCFS = Discipline of service "First come first served"
 the code implemented as the porpused of calculate any case (Erlang-B, Erlang-C or Engset) considering the input values lambda, dm, m, L and K that are asked in the execution of the compiled file.
 
-**Execution**
+## Execution
 ```
 git clone <url>
 cd 2_WaitingList
