@@ -27,6 +27,7 @@ Considering a queue represented by Kendall's notation M / M / m / L / K / FCFS i
 - L = Number of system buffer positions
 - K = Population size of potential clients
 - FCFS = Discipline of service "First come first served"
+
 the code implemented as the porpused of calculate any case (Erlang-B, Erlang-C or Engset) considering the input values lambda, dm, m, L and K that are asked in the execution of the compiled file.
 
 ## Execution
