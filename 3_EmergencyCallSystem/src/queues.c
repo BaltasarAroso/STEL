@@ -9,7 +9,7 @@
 #define EVENTS_LIST 1000000
 #define LAMBDA 10 // Calls per minute (600/hour)
 #define L 1000 // Finite buffer
-#define DM 1.5 // Mean time 
+#define DM 1.5 // Mean time
 #define DM_TRANSF 0.75
 #define M 8
 #define K 20000 // Population size of potential clients
@@ -77,6 +77,9 @@ double calcTime(double lt, int type) {
     S = -(log(u)*DM);
     return S;
   }
+
+
+
 }
 
 list * addNewEvent(double t, double lt, int type, list* event_list){
@@ -117,7 +120,7 @@ int main(int argc, char* argv[]) {
   int i, channels = 0, buffer_size = L, buffer_events = 0, delay_count = 0, losses = 0, channels_inem = 0;
   int *histogram, hist_size = 0, aux = 0;
   char filename[50];
-  list *events = NULL,*events_inem = NULL, *buffer = NULL, *buffer_inem = NULL;
+  list *events = NULL, *events_inem = NULL, *buffer = NULL, *buffer_inem = NULL;
 
   srand(time(NULL));
 
@@ -177,18 +180,19 @@ int main(int argc, char* argv[]) {
       } else { // If the buffer is empty
         channels--;
       }
+
     } else { // It's an emergency
       arrival_events++;  // counting the arrival events
-      if (channels_inem < M) // If the channels aren't full
-      {
-        events_inem = addNewEvent(events->_time, lambda_total, DEPARTURE, events);
+      if (channels_inem < M) { // If the channels aren't full
+        events_inem = addNewEvent(events->_time, lambda_total, DEPARTURE, events_inem);
         channels_inem--;
         events = rem(events);
+      } else {
+        buffer_inem = add(buffer_inem, ARRIVAL, events->_time);
       }
-      else
-      {
-        buffer_inem = add(buffer_inem, ARRIVAL, events->_time);        
-      }
+      
+      /* verify buffer_inem and send that call to INEM */
+
       // The arrival of that call originates a new arrival event
       events = addNewEvent(aux_time, lambda_total, arrivalOrEmergency(), events);
     }
