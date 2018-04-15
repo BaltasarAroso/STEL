@@ -72,11 +72,52 @@ double calcTime(double lt, int type) {
     return C;
   } else if (type == DEPARTURE) {
     // service time
-    S = -(log(u)*DM);
+    S = 1-(log(u)*DM);
+    if (S < 60) {
+      calcTime(lt, type);
+    }
+    if (S > 4*60) {
+      calcTime(lt, type);
+    }
     return S;
   }
   E = -(log(u)*DM_TRANSF);
+  if (E < 35) {
+    calcTime(lt, type);
+  }
+  if (E > 75) {
+    calcTime(lt, type);
+  }
   return E;
+
+  /* Box-Muller */
+  double U1, U2, W, mult;
+  static double X1, X2;
+  static int call = 0;
+
+  if (call == 1)
+    {
+      call = !call;
+      return (mu + sigma * (double) X2);
+    }
+
+  do
+    {
+      U1 = -1 + ((double) rand () / RAND_MAX) * 2;
+      U2 = -1 + ((double) rand () / RAND_MAX) * 2;
+      W = U1*U1 + U2*U2;
+    }
+  while (W >= 1 || W == 0);
+
+  mult = sqrt ((-2 * log (W)) / W);
+  X1 = U1 * mult;
+  X2 = U2 * mult;
+
+  call = !call;
+
+  return (mu + sigma * (double) X1);
+  /**************/
+  
 }
 
 list * addNewEvent(double t, double lt, int type, list* event_list) {
