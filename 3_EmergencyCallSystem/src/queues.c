@@ -70,17 +70,21 @@ double calcTime(double lt, int type) {
 
   if (type == DEPARTURE) {
     // service time
-    do {
        S = -(log(u)*DM);
-    } while((S < 1) || (S > 4));// Min time=1min, Max time=4min
-    return S;
-  } else if (type == DEPARTURE_EMERGENCY) { 
+       if((S < 1) || (S > 4)) {// Min time=1min, Max time=4min
+       	  calcTime(lt,type);
+       } else {
+       	return S; 
+       }
+ } else if (type == DEPARTURE_EMERGENCY) { 
   	printf("Inside calcTime DEPARTURE_EMERGENCY\n");
-  	do {
   		E = gaussianDistribution();
   		printf("E value: %f\n", E);
-  	} while((E < 0.5) || (E > 1.25)); // Min time=30s, Max time=0.75s
-   	return E;
+  	if ((E < 0.5) || (E > 1.25)){ // Min time=30s, Max time=0.75s
+  		calcTime(lt,type);	
+   	} else {
+   		return E;
+   	}
   } else { // It's an arrival
   	// Poisson process
     // mean time between consecutive arrivals
@@ -311,8 +315,8 @@ int main(int argc, char* argv[]) {
   fprintf(stdout, "\tFile \"%s\" saved successfully\n\n", filename);
 */
 
-  fprintf(stdout, "\nProbability of a call being delayed at the entry to the PC system (buffer events = %d): %.3f%%\n",
-                     buffer_events, buffer_events / (float)(arrival_events+inem_events) * 100);
+  fprintf(stdout, "\nProbability of a call being delayed at the entry of the PC system (buffer events = %d): %.3f%%\n",
+                     buffer_events, buffer_events / (float)(arrival_events) * 100);
 
   fprintf(stdout, "\nProbability of a call being lost (losses = %d) at the entry to the PC system (total arrivals = %d): %.3f%%\n",
                      losses, arrival_events, losses / (float)(arrival_events+inem_events) * 100);
