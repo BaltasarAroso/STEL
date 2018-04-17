@@ -9,11 +9,10 @@
 
 #define EVENTS_LIST 100000
 #define LAMBDA 10 // Calls per minute (600/hour)
-#define L 10 // Finite buffer size of PC
+#define L 50 // Finite buffer size of PC
 #define DM 1.5 // Mean time of exponential distribution (PC calls)
-#define DM_TRANSF 0.75
-#define M 8 // service positions at PC 
-#define M_INEM 8 // service positions at INEM
+#define M 20 // service positions at PC 
+#define M_INEM 5 // service positions at INEM
 #define K 20000 // Population size of potential clients
 
 #define MU 0.75 // Mean = 45s
@@ -45,6 +44,7 @@ int saveInCSV(char* filename, int* histogram, int hist_size) {
 }
 */
 
+/*
 double gaussianDistribution()
 {
 	// Note: M_E and M_PI belong to "math.h" library
@@ -65,7 +65,7 @@ double gaussianDistribution()
 	Z1 = sqrt(-2.0 * log(U1)) * sin(2*M_PI * U2);
 	return Z0 * SIGMA + MU;
 }
-
+*/
 double boxMuller(void)
 {
   double U1, U2, W, mult;
@@ -109,11 +109,11 @@ double calcTime(double lt, int type) {
   	do {
   		E = boxMuller();
   	} while ((E < 0.5) || (E > 1.25));// Min time=30s, Max time=0.75s
-	return E;
-   	
+	return E;	
   } else { // It's an arrival
   	// Poisson process
     // mean time between consecutive arrivals
+  	u = (rand()%RAND_MAX+1) / (double)RAND_MAX;
     C = -(log(u)/(double)lt);
     return C;
   }
@@ -164,9 +164,10 @@ int arrivalOrEmergency () {
 }
 
 // Function to manage the calls received at INEM
-double callsInem(list* events_inem, list* buffer_inem, double lambda_total) {
-	int channels_inem = 0;
+double callsInem(list* events_inem, double lambda_total) {
+	int channels_inem = 0; // Channels occupied
 	double delay = 0, aux_time = 0;
+	list *buffer_inem = NULL;
 
 	if (events_inem->type == ARRIVAL) {
 		if (channels_inem < M_INEM) { // If the channels aren't full
@@ -175,6 +176,7 @@ double callsInem(list* events_inem, list* buffer_inem, double lambda_total) {
 		} else { // Otherwise, the event needs to wait on buffer
 	        buffer_inem = add(buffer_inem, ARRIVAL, events_inem->_time);
       	}
+      	events_inem = rem(events_inem);
     }
 	else { // Departure event
 	  aux_time = events_inem->_time;
@@ -182,6 +184,7 @@ double callsInem(list* events_inem, list* buffer_inem, double lambda_total) {
       if (buffer_inem != NULL) { // As a channel is free now, it can serve an event waiting in the buffer
         events_inem = addNewEvent(aux_time, lambda_total, DEPARTURE, events_inem);
         delay = aux_time - buffer_inem->_time;
+        printf("2222The event was on INEM buffer %.4f secs\n", delay);
         buffer_inem = rem(buffer_inem);
         return delay;
       } else { // If the buffer is empty
@@ -195,7 +198,7 @@ int main(int argc, char* argv[]) {
   // useful variables
   int i = 0, index = 0, losses = 0, turn = 0;
   int *histogram, hist_size = 0, aux_hist = 0;
-  double lambda_total = 0, aux_time = 0, delay_time = 0;
+  double lambda_total = LAMBDA, aux_time = 0, delay_time = 0;
   char filename[50];
 
   // PC variables
@@ -204,43 +207,41 @@ int main(int argc, char* argv[]) {
 
   // INEM variables
   int inem_events = 0;
-  list *events_inem = NULL, *buffer_inem = NULL;
+  list *events_inem = NULL;
 
-  double delay_pc_inem = 0, event_time = 0;
+  double delay_pc_inem = 0, event_time = 0, delay = 0;
   //int emergency = 0, delay_count = 0;;
   //double t = -1;
 
   srand(time(NULL));
-  /*
+
   strcat(filename, argv[1]);
   histogram = (int*)calloc(1, sizeof(int));
-  */
+ 
   events = add(events, arrivalOrEmergency(), 0);
-  print_elems(events);
 
   // We process the list of events
   for(i = 1; i < EVENTS_LIST; i++) {
   	aux_time = events->_time;
-  	
   	if (turn)
   	{
-  		//printf("Inside inem events\n");
+  		//printf("----Inside inem events\n");
   		if (events_inem)
   		{
-  			delay_pc_inem += callsInem(events_inem, buffer_inem, lambda_total);
+  			delay_pc_inem += callsInem(events_inem, lambda_total);
   		}  		
   	}
     if (events->type == ARRIVAL) { // PC arrival event
       //printf("Arrival\n");
       arrival_events++;  // counting the arrival events
       lambda_total = (K - channels - (L-buffer_size)) * LAMBDA; // arrival rate of the system
-
+      //lambda_total = LAMBDA;
       // If isn't an emergency, call is processed by PC
       if (channels < M) { // if the channels aren't full
       	//printf("Channels not full\n");
         events = addNewEvent(events->_time, lambda_total, DEPARTURE, events);
         //printf("Event added\n");
-    	//print_elems(events);
+    	print_elems(events);
         channels++; // A channel serves the call
       } else if (buffer_size > 0) { // if the buffer has space
           buffer = add(buffer, ARRIVAL, events->_time);
@@ -286,10 +287,10 @@ int main(int argc, char* argv[]) {
     } else if (events->type == ARRIVAL_EMERGENCY) { 
       //printf("Emergency arrival\n");
       inem_events++;  // Counting the arrival events
-      lambda_total = (K - channels - (L-buffer_size)) * LAMBDA; // arrival rate of the system
-      delay_pc_inem = calcTime(lambda_total, DEPARTURE_EMERGENCY);
-      printf("Delay PC-INEM: %.2f\n", delay_pc_inem);
-  	  event_time = events->_time + delay_pc_inem;
+      //lambda_total = (K - channels - (L-buffer_size)) * LAMBDA; // arrival rate of the system
+      delay = calcTime(lambda_total, DEPARTURE_EMERGENCY);
+      delay_pc_inem += delay;
+  	  event_time = events->_time + delay;
       events = add(events, DEPARTURE_EMERGENCY, event_time);
       //print_elems(events);
       // Remove the actual arrival event and add a new one
@@ -297,12 +298,13 @@ int main(int argc, char* argv[]) {
       // The arrival of that call originates a new arrival event
       events = addNewEvent(aux_time, lambda_total, arrivalOrEmergency(), events);
     } else { // It's a DEPARTURE_EMERGENCY, what means that the call is transfered to INEM
-      printf("Departure emergency\n");
-      events_inem = add(events_inem, ARRIVAL, events->_time);
+      //printf("Departure emergency\n");
+      events_inem = add(events_inem, ARRIVAL, aux_time);
       //print_elems(events_inem);
       events = rem(events);
-      delay_pc_inem += callsInem(events_inem, buffer_inem, lambda_total);
-      printf("Delay INEM: %f\n", delay_pc_inem);
+      delay_pc_inem += callsInem(events_inem, lambda_total);
+      //printf("Delay INEM: %f\n", delay_pc_inem);
+      print_elems(events_inem);
     }
     turn = !turn;
   }
