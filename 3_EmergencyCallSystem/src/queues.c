@@ -4,11 +4,12 @@
 #include <time.h>
 #include <math.h>
 #include <sys/stat.h>
+#include <signal.h>
 #include "lib/linked_list.h"
 
 #define EVENTS_LIST 100000
 #define LAMBDA 10 // Calls per minute (600/hour)
-#define L 1000 // Finite buffer size of PC
+#define L 10 // Finite buffer size of PC
 #define DM 1.5 // Mean time of exponential distribution (PC calls)
 #define DM_TRANSF 0.75
 #define M 8 // service positions at PC 
@@ -55,36 +56,61 @@ double gaussianDistribution()
 	   return Z1 * SIGMA + MU;
 
 	double U1, U2;
-	U1 = (rand()%RAND_MAX + 1) / (double)RAND_MAX;
-	U2 = (rand()%RAND_MAX + 1) / (double)RAND_MAX;
-
+	U1 = rand()%RAND_MAX / (double)RAND_MAX;
+	U2 = rand()%RAND_MAX / (double)RAND_MAX;
+	printf("//U1: %.3f\n", U1);
+	printf("//U2: %.3f\n", U2);
 	double Z0;
 	Z0 = sqrt(-2.0 * log(U1)) * cos(2*M_PI * U2); 
 	Z1 = sqrt(-2.0 * log(U1)) * sin(2*M_PI * U2);
 	return Z0 * SIGMA + MU;
 }
 
+double boxMuller(void)
+{
+  double U1, U2, W, mult;
+  static double X1, X2;
+  static int call = 0;
+
+  if (call == 1)
+  {
+	call = !call;
+	return (MU + SIGMA * (double) X2);
+  }
+  do
+ {
+	U1 = -1.0 + ((double) rand () / RAND_MAX) * 2.0;
+	U2 = -1.0 + ((double) rand () / RAND_MAX) * 2.0;
+	W = U1*U1 + U2*U2;
+ } while (W >= 1 || W == 0);
+
+	mult = sqrt ((-2 * log (W)) / W);
+	X1 = U1 * mult;
+	X2 = U2 * mult;
+
+	call = !call;
+
+	return (MU + SIGMA * (double) X1);
+}
+
 double calcTime(double lt, int type) {
-  double u, C, S, E;
-  u = (rand()%RAND_MAX + 1) / (double)RAND_MAX;
+  double u = 0, C = 0, S = 0, E = 0;
 
   if (type == DEPARTURE) {
     // service time
-       S = -(log(u)*DM);
-       if((S < 1) || (S > 4)) {// Min time=1min, Max time=4min
-       	  calcTime(lt,type);
-       } else {
-       	return S; 
-       }
+    do {
+    	u = (rand()%RAND_MAX+1) / (double)RAND_MAX;
+    	S = -(log(u)*DM);
+  	} while ((S < 1) || (S > 4));// Min time=1min, Max time=4min    
+  	return S;
+
  } else if (type == DEPARTURE_EMERGENCY) { 
-  	printf("Inside calcTime DEPARTURE_EMERGENCY\n");
-  		E = gaussianDistribution();
-  		printf("E value: %f\n", E);
-  	if ((E < 0.5) || (E > 1.25)){ // Min time=30s, Max time=0.75s
-  		calcTime(lt,type);	
-   	} else {
-   		return E;
-   	}
+  	//printf("//Inside calcTime DEPARTURE_EMERGENCY\n");
+  	do {
+  		E = boxMuller();
+  	} while ((E < 0.5) || (E > 1.25));// Min time=30s, Max time=0.75s
+	return E;
+   	
   } else { // It's an arrival
   	// Poisson process
     // mean time between consecutive arrivals
@@ -103,38 +129,6 @@ double calcTime(double lt, int type) {
  */  
 }
 
-
-
-/*
-double boxMuller(void)
-{
-  double U1, U2, W, mult;
-  static double X1, X2;
-  static int call = 0;
-
-	  if (call == 1)
-	    {
-	      call = !call;
-	      return (mu + sigma * (double) X2);
-	    }
-
-	  do
-	    {
-	      U1 = -1 + ((double) rand () / RAND_MAX) * 2;
-	      U2 = -1 + ((double) rand () / RAND_MAX) * 2;
-	      W = U1*U1 + U2*U2;
-	    }
-	  while (W >= 1 || W == 0);
-
-	  mult = sqrt ((-2 * log (W)) / W);
-	  X1 = U1 * mult;
-	  X2 = U2 * mult;
-
-	  call = !call;
-
-	  return (mu + sigma * (double) X1);
-}
-*/
 
 list * addNewEvent(double t, double lt, int type, list* event_list) {
   double event_time = 0;
@@ -162,7 +156,6 @@ void tellDelay(float tot_delay, int arrivals) {
 
 // Function that generates a random event that could be an emergency or not (60% prob of emeregency)
 int arrivalOrEmergency () {
-  srand(time(NULL));
   if ((rand() % 100) < 60) {
   	return ARRIVAL_EMERGENCY; 
   } else {
@@ -223,28 +216,31 @@ int main(int argc, char* argv[]) {
   histogram = (int*)calloc(1, sizeof(int));
   */
   events = add(events, arrivalOrEmergency(), 0);
-
+  print_elems(events);
 
   // We process the list of events
   for(i = 1; i < EVENTS_LIST; i++) {
   	aux_time = events->_time;
+  	
   	if (turn)
   	{
-  		printf("Inside inem events\n");
-  		delay_pc_inem += callsInem(events_inem, buffer_inem, lambda_total);
-  		turn = !turn;
+  		//printf("Inside inem events\n");
+  		if (events_inem)
+  		{
+  			delay_pc_inem += callsInem(events_inem, buffer_inem, lambda_total);
+  		}  		
   	}
     if (events->type == ARRIVAL) { // PC arrival event
-    	printf("Arrival\n");
+      //printf("Arrival\n");
       arrival_events++;  // counting the arrival events
       lambda_total = (K - channels - (L-buffer_size)) * LAMBDA; // arrival rate of the system
 
       // If isn't an emergency, call is processed by PC
       if (channels < M) { // if the channels aren't full
-      	printf("Channels not full\n");
+      	//printf("Channels not full\n");
         events = addNewEvent(events->_time, lambda_total, DEPARTURE, events);
-        printf("Event added\n");
-    	print_elems(events);
+        //printf("Event added\n");
+    	//print_elems(events);
         channels++; // A channel serves the call
       } else if (buffer_size > 0) { // if the buffer has space
           buffer = add(buffer, ARRIVAL, events->_time);
@@ -259,7 +255,7 @@ int main(int argc, char* argv[]) {
       events = addNewEvent(aux_time, lambda_total, arrivalOrEmergency(), events);
 
     } else if (events->type == DEPARTURE) { // Departure event
-    	printf("Departure\n");
+      //printf("Departure\n");
       events = rem(events);
       if (buffer != NULL) { // As a channel is free now it can serve an event waiting in the buffer
         events = addNewEvent(aux_time, lambda_total, DEPARTURE, events);
@@ -288,14 +284,14 @@ int main(int argc, char* argv[]) {
         channels--;
       }
     } else if (events->type == ARRIVAL_EMERGENCY) { 
-    	printf("Emergency arrival\n");
+      //printf("Emergency arrival\n");
       inem_events++;  // Counting the arrival events
       lambda_total = (K - channels - (L-buffer_size)) * LAMBDA; // arrival rate of the system
       delay_pc_inem = calcTime(lambda_total, DEPARTURE_EMERGENCY);
       printf("Delay PC-INEM: %.2f\n", delay_pc_inem);
   	  event_time = events->_time + delay_pc_inem;
       events = add(events, DEPARTURE_EMERGENCY, event_time);
-      print_elems(events);
+      //print_elems(events);
       // Remove the actual arrival event and add a new one
       events = rem(events);
       // The arrival of that call originates a new arrival event
@@ -303,9 +299,12 @@ int main(int argc, char* argv[]) {
     } else { // It's a DEPARTURE_EMERGENCY, what means that the call is transfered to INEM
       printf("Departure emergency\n");
       events_inem = add(events_inem, ARRIVAL, events->_time);
+      //print_elems(events_inem);
       events = rem(events);
       delay_pc_inem += callsInem(events_inem, buffer_inem, lambda_total);
+      printf("Delay INEM: %f\n", delay_pc_inem);
     }
+    turn = !turn;
   }
 /*
   if(saveInCSV(filename, histogram, hist_size) < 0) {
