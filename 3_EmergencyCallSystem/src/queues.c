@@ -19,13 +19,16 @@
 #define MU 0.75 // Mean = 45s
 #define SIGMA 0.25 // Standard deviation = 15s
 
+// defines for auxiliar code
+#define ZERO 100
+
 // defines for list type events
 #define ARRIVAL 1
 #define DEPARTURE 2
 #define ARRIVAL_EMERGENCY 3
 #define DEPARTURE_EMERGENCY 4
 
-/*
+
 int saveInCSV(char* filename, int* histogram, int hist_size) {
   FILE *CSV;
   int i;
@@ -38,13 +41,12 @@ int saveInCSV(char* filename, int* histogram, int hist_size) {
   }
   fprintf(CSV, "Index, Delay\n");
   for (i = 0; i < hist_size; i++) {
-    fprintf(CSV, "%d, %d\n", i, histogram[i]);
+    fprintf(CSV, "%d, %d\n", i-ZERO, histogram[i]);
   }
   fclose(CSV);
 
   return 0;
 }
-*/
 
 double boxMuller(void) {
   double U1, U2, W, mult;
@@ -105,24 +107,27 @@ list * addNewEvent(double t, int type, list* event_list) {
   return event_list;
 }
 
-/*
-void calcDelayProb(double t, int tot_delay, int* hist, int h_size) {
-  int num_delay = 0;
-  for (int i = 0; i < (int)t; i++) {
-    num_delay += hist[i];
-  }
-  //fprintf(stdout, "\tDelay: %d\n", num_delay);
-  //fprintf(stdout, "\tTotal delay: %d\n", tot_delay);
-  //fprintf(stdout, "\tThe probability is Pa(a<%.3f) = %.3f%%\n", t, ((float)num_delay) / tot_delay * 100);
-}
-*/
-
 // Function to tell the user the mean time he will have to wait based on system load
-void tellDelay(float tot_delay, int arrivals) {
+double tellDelay(int buffer_positions) {
   //fprintf(stdout, "Delay: %.3f\n", tot_delay);
-  //fprintf(stdout, "Arrival events: %d\n", arrivals);
-  //fprintf(stdout, "Mean time of delay predicted: %.3f seconds\n", tot_delay / (float)(arrivals) * 60);
-  //return (tot_delay / (float)(arrivals));
+  //fprintf(stdout, "Arrival events: %d\n", arrivals_buffer);
+  //fprintf(stdout, "Mean time of delay predicted: %.3f seconds\n", tot_delay / (float)(arrivals_buffer) * 60);
+
+  //int res = 0;
+  // if there's only one element in buffer, he can wait for a hole service time
+  // or he can just be server in that moment, so we've made an approximation of
+  // that time as half the service time, as the average time one element on buffer
+  // waits if he is the next one being served
+  //if (buffer_positions == 1){
+  //  res = 0.5 * DM;
+  //}
+  // if we have more waiting events on buffer the calculo is made having into
+  // account the events in front of them and the time that other events spend
+  // waiting for being served
+  //else {
+  //  res = (buffer_positions-1) * 0.5 * DM;
+  //}
+  return buffer_positions * 0.5 * DM;
 }
 
 // Function that generates a random event that could be an emergency or not (60% prob of emeregency)
@@ -154,7 +159,6 @@ double callsInem(list* events_inem, int* channels_inem, list *buffer_inem) {
     if (buffer_inem != NULL) { // As a channel is free now, it can serve an event waiting in the buffer
       events_inem = addNewEvent(aux_time_inem, DEPARTURE, events_inem);
       delay = aux_time_inem - buffer_inem->_time;
-      fprintf(stdout, "\n\t\t\t\t\t\t\t\t The event was on INEM buffer %.4f secs\n\n", delay);
       buffer_inem = rem(buffer_inem);
       return delay;
     } else { // If the buffer is empty
@@ -170,8 +174,8 @@ int main(int argc, char* argv[]) {
   // useful variables
   int i = 0, losses = 0, turn = 0;
   double aux_time = 0, delay_time = 0, delay_pc_inem = 0, event_time = 0, delay = 0, total_delay = 0;
-  //int *histogram = NULL, index = 0, hist_size = 0, aux_hist = 0;
-  //char filename[50];
+  int *histogram = NULL, index = 0, hist_size = 0, aux_hist = 0;
+  char filename[50] = "";
 
   // PC variables
   int arrival_events = 0, channels = 0, buffer_size = L, buffer_events = 0;
@@ -179,39 +183,31 @@ int main(int argc, char* argv[]) {
 
   // INEM variables
   int inem_events = 0, channels_inem = 0;
+  double aux_time_inem = 0;
   list *events_inem = NULL, *buffer_inem = NULL;
 
   srand(time(NULL));
 
-  //strcat(filename, argv[1]);
-  //histogram = (int*)calloc(1, sizeof(int));
+  strcat(filename, argv[1]);
+  histogram = (int*)calloc(1, sizeof(int));
 
   events = add(events, arrivalOrEmergency(), 0);
 
   // We process the list of events
   for(i = 1; i < EVENTS_LIST; i++) {
   	aux_time = events->_time;
-  	/*if (turn) {
-  		//fprintf(stdout, "----Inside inem events\n");
-  		if (events_inem != NULL) {
-  			delay_pc_inem += callsInem(events_inem, &channels_inem, buffer_inem);
-  		}
-  	}*/
     if (events->type == ARRIVAL) { // PC arrival event
-      //fprintf(stdout, "Arrival\n");
+      //fprintf(stdout, "Arrival\n"); //DEBUG
       arrival_events++;  // counting the arrival events
       // If isn't an emergency, call is processed by PC
       if (channels < M) { // if the channels aren't full
-        //fprintf(stdout, "Channels not full\n");
         events = addNewEvent(events->_time, DEPARTURE, events);
-        //fprintf(stdout, "Event added\n");
-        //print_elems(events);
         channels++; // A channel serves the call
       } else if (buffer_size > 0) { // if the buffer has space
           buffer = add(buffer, ARRIVAL, events->_time);
           buffer_size--;
           buffer_events++;
-          //total_delay += tellDelay(delay_time, buffer_events);
+          total_delay += tellDelay(L-buffer_size);
       } else { // if the channels and buffer are occupied we get a lost event
         losses++;
       }
@@ -220,19 +216,18 @@ int main(int argc, char* argv[]) {
       events = addNewEvent(aux_time, arrivalOrEmergency(), events);
 
     } else if (events->type == DEPARTURE) { // Departure event
-      //fprintf(stdout, "Departure\n");
+      //fprintf(stdout, "Departure\n"); //DEBUG
       events = rem(events);
       if (buffer != NULL) { // As a channel is free now it can serve an event waiting in the buffer
         events = addNewEvent(aux_time, DEPARTURE, events);
         delay_time += aux_time - buffer->_time;
 
-        // add values to histogram
-        /*
-        if ((total_delay/(float)buffer_events) == 0) {
-          index = 0;
-        } else {
-          index = (int)( ((aux_time - buffer->_time) - total_delay/(float)buffer_events) / total_delay/(float)buffer_events);
+        /* add values to histogram */
+        if (tellDelay(L-buffer_size) != 0) {
+          index = (int) (60 * ( (aux_time - buffer->_time) - tellDelay(L-buffer_size) / tellDelay(L-buffer_size) ) );
+          //fprintf(stderr, "\t index = %d\n", index); //DEBUG
         }
+        index += ZERO;
         if (index + 1 > hist_size) {
           aux_hist = hist_size;
           hist_size = index + 1;
@@ -246,10 +241,11 @@ int main(int argc, char* argv[]) {
           }
         }
         histogram[index]++;
-        */
+        /***************************/
 
         buffer = rem(buffer);
         buffer_size++;
+
       } else { // If the buffer is empty
         channels--;
       }
@@ -260,21 +256,13 @@ int main(int argc, char* argv[]) {
       delay_pc_inem += delay;
   	  event_time = events->_time + delay;
       events = add(events, DEPARTURE_EMERGENCY, event_time);
-      //print_elems(events);
-      // Remove the actual arrival event and add a new one
       events = rem(events);
-      // The arrival of that call originates a new arrival event
       events = addNewEvent(aux_time, arrivalOrEmergency(), events);
 
-    } else { // It's a DEPARTURE_EMERGENCY, what means that the call is transfered to INEM
-      //fprintf(stdout, "Departure emergency\n");
+    } else if (events->type == DEPARTURE_EMERGENCY) { // It's a DEPARTURE_EMERGENCY, what means that the call is transfered to INEM
+      //fprintf(stdout, "Departure emergency\n"); //DEBUG
       events_inem = add(events_inem, ARRIVAL, aux_time);
-      //print_elems(events_inem);
       events = rem(events);
-
-      //delay_pc_inem += callsInem(events_inem, &channels_inem, buffer_inem);
-
-      double delay = 0, aux_time_inem = 0;
 
     	if (events_inem->type == ARRIVAL) {
     		if (channels_inem < M_INEM) { // If the channels aren't full
@@ -290,27 +278,23 @@ int main(int argc, char* argv[]) {
         events_inem = rem(events_inem);
         if (buffer_inem != NULL) { // As a channel is free now, it can serve an event waiting in the buffer
           events_inem = addNewEvent(aux_time_inem, DEPARTURE, events_inem);
-          delay = aux_time_inem - buffer_inem->_time;
+          delay_pc_inem += aux_time_inem - buffer_inem->_time;
           buffer_inem = rem(buffer_inem);
-          delay_pc_inem += delay;
         } else { // If the buffer is empty
           channels_inem--;
         }
       }
-
-      //fprintf(stdout, "Delay INEM: %f\n", delay_pc_inem);
-      //print_elems(events_inem);
     }
-    //turn = !turn;
   }
 
-  /*
+  /* save histogram in file.csv */
   if(saveInCSV(filename, histogram, hist_size) < 0) {
     perror("saveInCSV");
     return -1;
   }
   fprintf(stdout, "\tFile \"%s\" saved successfully\n\n", filename);
-  */
+  free(histogram);
+  /******************************/
 
   fprintf(stdout, "\nProbability of a call being delayed at the entry of the PC system (buffer events = %d): %.3f%%\n",
                      buffer_events, buffer_events / (float)(arrival_events) * 100);
@@ -323,8 +307,6 @@ int main(int argc, char* argv[]) {
 
   fprintf(stdout, "\nAverage delay time of calls from PC to INEM: %.3f min = %.3f sec\n\n",
                      delay_pc_inem / (float)inem_events, delay_pc_inem / (float)(inem_events) * 60);
-
-  //free(histogram);
 
   return 0;
 }
