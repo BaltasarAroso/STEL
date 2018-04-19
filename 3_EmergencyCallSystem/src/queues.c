@@ -8,11 +8,11 @@
 #include "lib/linked_list.h"
 
 // defines for input values
-#define EVENTS_LIST 1000000
+#define EVENTS_LIST 100000
 #define LAMBDA 10 // Calls per minute (600/hour)
-#define L 6 // Finite buffer size of PC
+#define L 4 // Finite buffer size of PC
 #define DM 1.5 // Mean time of exponential distribution (PC calls)
-#define M 11 // service positions at PC
+#define M 12 // service positions at PC
 #define M_INEM 14 // service positions at INEM
 
 // defines for gaussian function
@@ -121,7 +121,8 @@ void calcDelayProb(double t, int tot_delay, int* hist, int h_size) {
 void tellDelay(float tot_delay, int arrivals) {
   //fprintf(stdout, "Delay: %.3f\n", tot_delay);
   //fprintf(stdout, "Arrival events: %d\n", arrivals);
- //fprintf(stdout, "Mean time of delay predicted: %.3f seconds\n", tot_delay / (float)(arrivals) * 60);
+  //fprintf(stdout, "Mean time of delay predicted: %.3f seconds\n", tot_delay / (float)(arrivals) * 60);
+  //return (tot_delay / (float)(arrivals));
 }
 
 // Function that generates a random event that could be an emergency or not (60% prob of emeregency)
@@ -165,10 +166,11 @@ double callsInem(list* events_inem, int* channels_inem, list *buffer_inem) {
 */
 
 int main(int argc, char* argv[]) {
+
   // useful variables
   int i = 0, losses = 0, turn = 0;
-  double aux_time = 0, delay_time = 0;
-  //int *histogram, index = 0, hist_size = 0, aux_hist = 0;
+  double aux_time = 0, delay_time = 0, delay_pc_inem = 0, event_time = 0, delay = 0, total_delay = 0;
+  //int *histogram = NULL, index = 0, hist_size = 0, aux_hist = 0;
   //char filename[50];
 
   // PC variables
@@ -178,9 +180,6 @@ int main(int argc, char* argv[]) {
   // INEM variables
   int inem_events = 0, channels_inem = 0;
   list *events_inem = NULL, *buffer_inem = NULL;
-
-  // System variables
-  double delay_pc_inem = 0, event_time = 0, delay = 0;
 
   srand(time(NULL));
 
@@ -212,7 +211,7 @@ int main(int argc, char* argv[]) {
           buffer = add(buffer, ARRIVAL, events->_time);
           buffer_size--;
           buffer_events++;
-          tellDelay(delay_time, arrival_events);
+          //total_delay += tellDelay(delay_time, buffer_events);
       } else { // if the channels and buffer are occupied we get a lost event
         losses++;
       }
@@ -226,8 +225,14 @@ int main(int argc, char* argv[]) {
       if (buffer != NULL) { // As a channel is free now it can serve an event waiting in the buffer
         events = addNewEvent(aux_time, DEPARTURE, events);
         delay_time += aux_time - buffer->_time;
+
+        // add values to histogram
         /*
-        index = (int)((aux_time - buffer->_time)*60);
+        if ((total_delay/(float)buffer_events) == 0) {
+          index = 0;
+        } else {
+          index = (int)( ((aux_time - buffer->_time) - total_delay/(float)buffer_events) / total_delay/(float)buffer_events);
+        }
         if (index + 1 > hist_size) {
           aux_hist = hist_size;
           hist_size = index + 1;
@@ -242,6 +247,7 @@ int main(int argc, char* argv[]) {
         }
         histogram[index]++;
         */
+
         buffer = rem(buffer);
         buffer_size++;
       } else { // If the buffer is empty
@@ -298,13 +304,13 @@ int main(int argc, char* argv[]) {
     //turn = !turn;
   }
 
-/*
+  /*
   if(saveInCSV(filename, histogram, hist_size) < 0) {
     perror("saveInCSV");
     return -1;
   }
   fprintf(stdout, "\tFile \"%s\" saved successfully\n\n", filename);
-*/
+  */
 
   fprintf(stdout, "\nProbability of a call being delayed at the entry of the PC system (buffer events = %d): %.3f%%\n",
                      buffer_events, buffer_events / (float)(arrival_events) * 100);
