@@ -21,6 +21,8 @@
 
 // defines for auxiliar code
 #define ZERO 100
+#define DELAY 1
+#define PREVISION 2
 
 // defines for list type events
 #define ARRIVAL_PC 1
@@ -31,7 +33,7 @@
 
 // functions
 
-int saveInCSV(char* filename, int* histogram, int hist_size) {
+int saveInCSV(char* filename, int* histogram, int hist_size, int type) {
   FILE *CSV;
   int i;
   fprintf(stdout, "\n\n\tSaving the histogram in \"%s\"\n", filename);
@@ -41,10 +43,18 @@ int saveInCSV(char* filename, int* histogram, int hist_size) {
     perror("fopen");
     return -1;
   }
-  fprintf(CSV, "Index, Delay\n");
-  for (i = 0; i < hist_size; i++) {
-    fprintf(CSV, "%d, %d\n", i, histogram[i]);
+  if (type == DELAY) {
+    fprintf(CSV, "Index, Delay\n");
+    for (i = 0; i < hist_size; i++) {
+      fprintf(CSV, "%d, %d\n", i, histogram[i]);
+    }
+  } else {
+    fprintf(CSV, "Index, Prevision\n");
+    for (i = 0; i < hist_size; i++) {
+      fprintf(CSV, "%d, %d\n", i-ZERO, histogram[i]);
+    }
   }
+
   fclose(CSV);
 
   return 0;
@@ -129,11 +139,30 @@ int arrivalOrEmergency () {
   }
 }
 
+int* insertValuesInHistogram (int index, int* hist_size, int* histogram) {
+  int i = 0, aux_hist = 0;
+  if (index + 1 > *hist_size) {
+    aux_hist = *hist_size;
+    *hist_size = index + 1;
+    fprintf(stderr, "hist_size = %d\n", *hist_size);
+    histogram = (int*)realloc(histogram, (*hist_size) * sizeof(int));
+    for (i = aux_hist; i < *hist_size; i++) {
+      histogram[i] = 0;
+    }
+    if (histogram == NULL) {
+      perror("realloc");
+      return NULL;
+    }
+  }
+  histogram[index]++;
+  return histogram;
+}
+
 int main(int argc, char* argv[]) {
 
   // useful variables
   int i = 0, aux_type = 0, losses = 0;
-  double aux_time = 0, arrival_time = 0, calc_time = 0, delay_time = 0, delay_pc_inem = 0, avg_error = 0;
+  double aux_time = 0, arrival_time = 0, calc_time = 0, delay_time = 0, delay_pc_inem = 0;
 
   // histogram_delay
   int *histogram_delay = NULL, index_delay = 0, hist_size_delay = 0, aux_hist_delay = 0;
@@ -141,6 +170,7 @@ int main(int argc, char* argv[]) {
 
   // histogram_prevision
   int *histogram_prevision = NULL, index_prevision = 0, hist_size_prevision = 0, aux_hist_prevision = 0;
+  double avg_error = 0;
   char filename_prevision[50] = "";
 
   // PC variables
@@ -158,8 +188,8 @@ int main(int argc, char* argv[]) {
   histogram_delay = (int*)calloc(1, sizeof(int));
 
   // associate filename to histogram_prevision
-  strcat(filename_prevision, argv[2]);
-  histogram_prevision = (int*)calloc(1, sizeof(int));
+  //strcat(filename_prevision, argv[2]);
+  //histogram_prevision = (int*)calloc(1, sizeof(int));
 
   events = add(events, ARRIVAL_PC, aux_time, arrival_time, 0);
 
@@ -189,6 +219,8 @@ int main(int argc, char* argv[]) {
       } else { // if the channels_pc and buffer are occupied we get a lost event
         losses++;
       }
+
+      // the new event need to have the arrival time calculated as a new time
       calc_time = calcTime(ARRIVAL_PC);
       events = add(events, ARRIVAL_PC, (aux_time + calc_time), (aux_time + calc_time), 0);
 
@@ -202,56 +234,38 @@ int main(int argc, char* argv[]) {
         } else { // Change to an ARRIVAL_EMERGENCY
           events = addNewEvent(buffer->_time, buffer->_arrival_time, ARRIVAL_INEM, events);
         }
+
+        /* add values to histogram_delay */
         index_delay = (int) 60 * (aux_time - buffer->_time);
+        if ((histogram_delay = insertValuesInHistogram(index_delay, &hist_size_delay, histogram_delay)) == NULL) {
+          fprintf(stderr, "\n\n\t\t!!! ERROR Inserting Values In Histogram Delay !!!\n\n");
+          return -1;
+        }
+        /*****************************/
+
         delay_time += aux_time - buffer->_time;
         buffer = rem(buffer);
         buffer_size++;
 
-
-        /* add values to histogram_delay */
+        /* add values to histogram_prevision */
 
         // the purpose is to do a slide average, so we need to update the average
-        /*if (buffer_events > (L-buffer_size)){
+        if (buffer_events > (L-buffer_size)){
           avg_error += (aux_time - buffer->_time) / (float) (buffer_events - (L-buffer_size));
         }
 
         if (avg_error != 0) {
           //fprintf(stderr, "\t avg_error = %f\n", avg_error); //DEBUG
           //fprintf(stderr, "\t buffer->_predicted_time = %f\n", buffer->_predicted_time); //DEBUG
-          index = (int) (60 * (avg_error - buffer->_predicted_time));
+          index_prevision = (int) (60 * (avg_error - buffer->_predicted_time));
           //fprintf(stderr, "\t index = %d\n", index); //DEBUG
         }
-        index += ZERO;
-        if (index + 1 > hist_size) {
-          aux_hist = hist_size;
-          hist_size = index + 1;
-          histogram_delay = (int*)realloc(histogram_delay, hist_size * sizeof(int));
-          for (i = aux_hist; i < hist_size; i++) {
-            histogram_delay[i] = 0;
-          }
-          if (histogram_delay == NULL) {
-            perror("realloc");
-            return -1;
-          }
+        index_prevision += ZERO;
+        if (insertValuesInHistogram(index_prevision, hist_size_prevision, histogram_prevision) < 0) {
+          fprintf(stderr, "\n\n\t\t!!! ERROR Inserting Values In Histogram Prevision !!!\n\n");
+          return -1;
         }
-        histogram_delay[index]++; */
-
-        /* add values to histogram_delay */
-
-        if (index_delay + 1 > hist_size_delay) {
-          aux_hist_delay = hist_size_delay;
-          hist_size_delay = index_delay + 1;
-          histogram_delay = (int*)realloc(histogram_delay, hist_size_delay * sizeof(int));
-          for (i = aux_hist_delay; i < hist_size_delay; i++) {
-            histogram_delay[i] = 0;
-          }
-          if (histogram_delay == NULL) {
-            perror("realloc");
-            return -1;
-          }
-        }
-        histogram_delay[index_delay]++;
-        /***************************/
+        /*************************************/
       }
 
     } else if (aux_type == ARRIVAL_INEM) {
@@ -269,7 +283,16 @@ int main(int argc, char* argv[]) {
           } else { // Change to an ARRIVAL_INEM
             events = addNewEvent(buffer->_time, buffer->_arrival_time, ARRIVAL_INEM, events);
           }
+
+          /* add values to histogram_delay */
+          index_delay = (int) 60 * (aux_time - buffer->_time);
+          if ((histogram_delay = insertValuesInHistogram(index_delay, &hist_size_delay, histogram_delay)) == NULL) {
+            fprintf(stderr, "\n\n\t\t!!! ERROR Inserting Values In Histogram Delay !!!\n\n");
+            return -1;
+          }
+          /*****************************/
           delay_time += aux_time - buffer->_time;
+
           buffer = rem(buffer);
           buffer_size++;
         }
@@ -292,7 +315,16 @@ int main(int argc, char* argv[]) {
           } else { // Change to an ARRIVAL_INEM
             events = addNewEvent(buffer->_time, buffer->_arrival_time, ARRIVAL_INEM, events);
           }
+
+          /* add values to histogram_delay */
+          index_delay = (int) 60 * (aux_time - buffer->_time);
+          if ((histogram_delay = insertValuesInHistogram(index_delay, &hist_size_delay, histogram_delay)) == NULL) {
+            fprintf(stderr, "\n\n\t\t!!! ERROR Inserting Values In Histogram Delay !!!\n\n");
+            return -1;
+          }
+          /*****************************/
           delay_time += aux_time - buffer->_time;
+
           buffer = rem(buffer);
           buffer_size++;
         }
@@ -304,7 +336,7 @@ int main(int argc, char* argv[]) {
   }
 
   /* save histogram_delay in file.csv */
-  if(saveInCSV(filename_delay, histogram_delay, hist_size_delay) < 0) {
+  if(saveInCSV(filename_delay, histogram_delay, hist_size_delay, DELAY) < 0) {
     perror("saveInCSV");
     return -1;
   }
@@ -312,14 +344,14 @@ int main(int argc, char* argv[]) {
   free(histogram_delay);
   /******************************/
 
-  /* save histogram_prevision in file.csv *
-  if(saveInCSV(filename_prevision, histogram_prevision, hist_size_prevision) < 0) {
+  /* save histogram_prevision in file.csv */
+  if(saveInCSV(filename_prevision, histogram_prevision, hist_size_prevision, PREVISION) < 0) {
     perror("saveInCSV");
     return -1;
   }
   fprintf(stdout, "\tFile \"%s\" saved successfully\n\n", filename_prevision);
   free(histogram_prevision);
-  ******************************/
+  /******************************/
 
   fprintf(stdout, "\nProbability of a call being delayed at the entry of the PC system (buffer events = %d): %.3f%%\n",
                      buffer_events, buffer_events / (float)(arrival_events) * 100);
