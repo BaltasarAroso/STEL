@@ -134,7 +134,7 @@ int arrivalOrEmergency () {
 int main(int argc, char* argv[]) {
 
   // useful variables
-  int i = 0, losses = 0;
+  int i = 0, aux_type = 0, losses = 0;
   double aux_time = 0, delay_time = 0, delay_pc_inem = 0, event_time = 0, delay = 0, avg_error = 0;
   //int *histogram = NULL, index = 0, hist_size = 0, aux_hist = 0;
   //char filename[50] = "";
@@ -158,41 +158,46 @@ int main(int argc, char* argv[]) {
   // We process the list of events
   for(i = 1; i < EVENTS_LIST; i++) {
   	aux_time = events->_time;
-    if (events->type == ARRIVAL_PC) { // PC arrival event
+    aux_type = events->type;
+    events = rem(events);
+    if (aux_type == ARRIVAL_PC) { // PC arrival event
       fprintf(stdout, "ARRIVAL_PC\n"); //DEBUG
       arrival_events++;  // counting the arrival events
       if (channels < M) { // if the channels aren't full
+      fprintf(stderr, "\t\t\tPC_CHANNELS available - channels = %d\n", channels); //DEBUG
+        channels++; // A channel serves the call
         if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
           events = addNewEvent(aux_time, DEPARTURE_PC, events);
-          channels++; // A channel serves the call
         } else { // Change to an ARRIVAL_EMERGENCY
-          events = rem(events);
           events = addNewEvent(aux_time, ARRIVAL_INEM, events);
         }
       } else if (buffer_size > 0) { // if the buffer has space
+        fprintf(stderr, "\t\t\tPC_BUFFER available - buffer_size = %d\n", buffer_size); //DEBUG
           buffer_size--;
           buffer_events++;
           buffer = add(buffer, ARRIVAL_PC, aux_time, tellDelay(avg_error, L-buffer_size, buffer_events));
       } else { // if the channels and buffer are occupied we get a lost event
+        fprintf(stderr, "\t\t\tPC_LOSSES added\n"); //DEBUG
         losses++;
       }
 
       // Remove the actual arrival event and add a new one
-      events = rem(events);
       events = addNewEvent(aux_time, ARRIVAL_PC, events);
 
-    } else if (events->type == DEPARTURE_PC) { // Departure event
+    } else if (aux_type == DEPARTURE_PC) { // Departure event
       fprintf(stdout, "DEPARTURE_PC\n"); //DEBUG
-      events = rem(events);
+      channels--;
       if (buffer != NULL) { // As a channel is free now it can serve an event waiting in the buffer
+        channels++; // A channel serves the call
         if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
-          events = addNewEvent(events->_time, DEPARTURE_PC, events);
-          channels++; // A channel serves the call
+          events = addNewEvent(buffer->_time, DEPARTURE_PC, events);
         } else { // Change to an ARRIVAL_EMERGENCY
-          events = rem(events);
-          events = addNewEvent(aux_time, ARRIVAL_INEM, events);
+          events = addNewEvent(buffer->_time, ARRIVAL_INEM, events);
         }
         delay_time += aux_time - buffer->_time;
+        buffer = rem(buffer);
+        buffer_size++;
+
 
         /* add values to histogram
 
@@ -222,26 +227,21 @@ int main(int argc, char* argv[]) {
         }
         histogram[index]++;
         ***************************/
-        buffer = rem(buffer);
-        buffer_size++;
-      } else { // If the buffer is empty
-        channels--;
       }
 
-    } else if (events->type == ARRIVAL_INEM) {
+    } else if (aux_type == ARRIVAL_INEM) {
       fprintf(stderr, "ARRIVAL_INEM\n"); //DEBUG
       inem_events++;  // Counting the arrival events
-      events = rem(events);
   		if (channels_inem < M_INEM) { // If the channels aren't full
         events = addNewEvent(aux_time, DEPARTURE_INEM, events);
         channels_inem++; // A channel serves the call
         channels--; // One channel from PC becomes free, because passes the call to INEM
         if (buffer != NULL) {
+          channels++; // A channel serves the call
           if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
-            events = addNewEvent(aux_time, DEPARTURE_PC, events);
-            channels++; // A channel serves the call
-          } else { // Change to an ARRIVAL_EMERGENCY
-            events = addNewEvent(aux_time, ARRIVAL_INEM, events);
+            events = addNewEvent(buffer->_time, DEPARTURE_PC, events);
+          } else { // Change to an ARRIVAL_INEM
+            events = addNewEvent(buffer->_time, ARRIVAL_INEM, events);
           }
           buffer = rem(buffer);
           buffer_size++;
@@ -251,18 +251,17 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "\n\nENTROU NO BUFFER INEM\n");
       }
 
-    } else if (events->type == DEPARTURE_INEM) { // It's a DEPARTURE_INEM, what means that the call is transfered to INEM
+    } else if (aux_type == DEPARTURE_INEM) { // It's a DEPARTURE_INEM, what means that the call is transfered to INEM
       fprintf(stdout, "DEPARTURE_INEM\n"); //DEBUG
-      events = rem(events);
       if (buffer_inem != NULL) { // As a channel is free now, it can serve an event waiting in the buffer_inem
         events = addNewEvent(aux_time, DEPARTURE_INEM, events);
-        channels--; // One channel from PC becomes free, because passes the call to INEM
+        channels--;
         if (buffer != NULL) {
+          channels++; // A channel serves the call
           if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
-            events = addNewEvent(events->_time, DEPARTURE_PC, events);
-            channels++; // A channel serves the call
-          } else { // Change to an ARRIVAL_EMERGENCY
-            events = addNewEvent(aux_time, ARRIVAL_INEM, events);
+            events = addNewEvent(buffer->_time, DEPARTURE_PC, events);
+          } else { // Change to an ARRIVAL_INEM
+            events = addNewEvent(buffer->_time, ARRIVAL_INEM, events);
           }
           buffer = rem(buffer);
           buffer_size++;
