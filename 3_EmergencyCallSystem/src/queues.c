@@ -34,7 +34,7 @@
 int saveInCSV(char* filename, int* histogram, int hist_size) {
   FILE *CSV;
   int i;
-  fprintf(stdout, "\n\tSaving the histogram in \"%s\"\n", filename);
+  fprintf(stdout, "\n\n\tSaving the histogram in \"%s\"\n", filename);
 
   CSV = fopen(filename,"w+");
   if(CSV == NULL) {
@@ -43,7 +43,7 @@ int saveInCSV(char* filename, int* histogram, int hist_size) {
   }
   fprintf(CSV, "Index, Delay\n");
   for (i = 0; i < hist_size; i++) {
-    fprintf(CSV, "%d, %d\n", i-ZERO, histogram[i]);
+    fprintf(CSV, "%d, %d\n", i, histogram[i]);
   }
   fclose(CSV);
 
@@ -134,8 +134,14 @@ int main(int argc, char* argv[]) {
   // useful variables
   int i = 0, aux_type = 0, losses = 0;
   double aux_time = 0, arrival_time = 0, calc_time = 0, delay_time = 0, delay_pc_inem = 0, avg_error = 0;
-  //int *histogram = NULL, index = 0, hist_size = 0, aux_hist = 0;
-  //char filename[50] = "";
+
+  // histogram_delay
+  int *histogram_delay = NULL, index_delay = 0, hist_size_delay = 0, aux_hist_delay = 0;
+  char filename_delay[50] = "";
+
+  // histogram_prevision
+  int *histogram_prevision = NULL, index_prevision = 0, hist_size_prevision = 0, aux_hist_prevision = 0;
+  char filename_prevision[50] = "";
 
   // PC variables
   int arrival_events = 0, channels_pc = 0, buffer_size = L, buffer_events = 0;
@@ -147,8 +153,13 @@ int main(int argc, char* argv[]) {
 
   srand(time(NULL));
 
-  //strcat(filename, argv[1]);
-  //histogram = (int*)calloc(1, sizeof(int));
+  // associate filename to histogram_delay
+  strcat(filename_delay, argv[1]);
+  histogram_delay = (int*)calloc(1, sizeof(int));
+
+  // associate filename to histogram_prevision
+  strcat(filename_prevision, argv[2]);
+  histogram_prevision = (int*)calloc(1, sizeof(int));
 
   events = add(events, ARRIVAL_PC, aux_time, arrival_time, 0);
 
@@ -165,7 +176,6 @@ int main(int argc, char* argv[]) {
       arrival_time = aux_time;
       arrival_events++;  // counting the arrival events
       if (channels_pc < M) { // if the channels_pc aren't full
-        //fprintf(stderr, "\t\t\tPC_CHANNELS available - channels_pc = %d\n", channels_pc); //DEBUG
         channels_pc++; // A channel serves the call
         if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
           events = addNewEvent(aux_time, arrival_time, DEPARTURE_PC, events);
@@ -173,12 +183,10 @@ int main(int argc, char* argv[]) {
           events = addNewEvent(aux_time, arrival_time, ARRIVAL_INEM, events);
         }
       } else if (buffer_size > 0) { // if the buffer has space
-        //fprintf(stderr, "\t\t\tPC_BUFFER available - buffer_size = %d\n", buffer_size); //DEBUG
           buffer_size--;
           buffer_events++;
           buffer = add(buffer, ARRIVAL_PC, aux_time, arrival_time, tellDelay(avg_error, L-buffer_size, buffer_events));
       } else { // if the channels_pc and buffer are occupied we get a lost event
-        //fprintf(stderr, "\t\t\tPC_LOSSES added\n"); //DEBUG
         losses++;
       }
       calc_time = calcTime(ARRIVAL_PC);
@@ -194,15 +202,16 @@ int main(int argc, char* argv[]) {
         } else { // Change to an ARRIVAL_EMERGENCY
           events = addNewEvent(buffer->_time, buffer->_arrival_time, ARRIVAL_INEM, events);
         }
+        index_delay = (int) 60 * (aux_time - buffer->_time);
         delay_time += aux_time - buffer->_time;
         buffer = rem(buffer);
         buffer_size++;
 
 
-        /* add values to histogram
+        /* add values to histogram_delay */
 
         // the purpose is to do a slide average, so we need to update the average
-        if (buffer_events > (L-buffer_size)){
+        /*if (buffer_events > (L-buffer_size)){
           avg_error += (aux_time - buffer->_time) / (float) (buffer_events - (L-buffer_size));
         }
 
@@ -216,17 +225,33 @@ int main(int argc, char* argv[]) {
         if (index + 1 > hist_size) {
           aux_hist = hist_size;
           hist_size = index + 1;
-          histogram = (int*)realloc(histogram, hist_size * sizeof(int));
+          histogram_delay = (int*)realloc(histogram_delay, hist_size * sizeof(int));
           for (i = aux_hist; i < hist_size; i++) {
-            histogram[i] = 0;
+            histogram_delay[i] = 0;
           }
-          if (histogram == NULL) {
+          if (histogram_delay == NULL) {
             perror("realloc");
             return -1;
           }
         }
-        histogram[index]++;
-        ***************************/
+        histogram_delay[index]++; */
+
+        /* add values to histogram_delay */
+
+        if (index_delay + 1 > hist_size_delay) {
+          aux_hist_delay = hist_size_delay;
+          hist_size_delay = index_delay + 1;
+          histogram_delay = (int*)realloc(histogram_delay, hist_size_delay * sizeof(int));
+          for (i = aux_hist_delay; i < hist_size_delay; i++) {
+            histogram_delay[i] = 0;
+          }
+          if (histogram_delay == NULL) {
+            perror("realloc");
+            return -1;
+          }
+        }
+        histogram_delay[index_delay]++;
+        /***************************/
       }
 
     } else if (aux_type == ARRIVAL_INEM) {
@@ -278,13 +303,22 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  /* save histogram in file.csv
-  if(saveInCSV(filename, histogram, hist_size) < 0) {
+  /* save histogram_delay in file.csv */
+  if(saveInCSV(filename_delay, histogram_delay, hist_size_delay) < 0) {
     perror("saveInCSV");
     return -1;
   }
-  fprintf(stdout, "\tFile \"%s\" saved successfully\n\n", filename);
-  free(histogram);
+  fprintf(stdout, "\tFile \"%s\" saved successfully\n\n", filename_delay);
+  free(histogram_delay);
+  /******************************/
+
+  /* save histogram_prevision in file.csv *
+  if(saveInCSV(filename_prevision, histogram_prevision, hist_size_prevision) < 0) {
+    perror("saveInCSV");
+    return -1;
+  }
+  fprintf(stdout, "\tFile \"%s\" saved successfully\n\n", filename_prevision);
+  free(histogram_prevision);
   ******************************/
 
   fprintf(stdout, "\nProbability of a call being delayed at the entry of the PC system (buffer events = %d): %.3f%%\n",
