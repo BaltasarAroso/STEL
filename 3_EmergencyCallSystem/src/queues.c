@@ -105,10 +105,8 @@ double calcTime(int type) {
   }
 }
 
-list * addNewEvent(double t, int type, list* event_list) {
-  double event_time = 0;
-  event_time = t + calcTime(type);
-  event_list = add(event_list, type, event_time, 0);
+list * addNewEvent(double t, double arrival_time, int type, list* event_list) {
+  event_list = add(event_list, type, (t + calcTime(type)), arrival_time, 0);
   return event_list;
 }
 
@@ -135,64 +133,66 @@ int main(int argc, char* argv[]) {
 
   // useful variables
   int i = 0, aux_type = 0, losses = 0;
-  double aux_time = 0, delay_time = 0, delay_pc_inem = 0, event_time = 0, delay = 0, avg_error = 0;
+  double aux_time = 0, arrival_time = 0, calc_time = 0, delay_time = 0, delay_pc_inem = 0, avg_error = 0;
   //int *histogram = NULL, index = 0, hist_size = 0, aux_hist = 0;
   //char filename[50] = "";
 
   // PC variables
-  int arrival_events = 0, channels = 0, buffer_size = L, buffer_events = 0;
+  int arrival_events = 0, channels_pc = 0, buffer_size = L, buffer_events = 0;
   list *events = NULL, *buffer = NULL;
 
   // INEM variables
   int inem_events = 0, channels_inem = 0;
-  double aux_time_inem = 0, aux_time_pc_inem = 0;
-  list *events_inem = NULL, *buffer_inem = NULL;
+  list *buffer_inem = NULL;
 
   srand(time(NULL));
 
   //strcat(filename, argv[1]);
   //histogram = (int*)calloc(1, sizeof(int));
 
-  events = add(events, ARRIVAL_PC, 0, 0);
+  events = add(events, ARRIVAL_PC, aux_time, arrival_time, 0);
 
   // We process the list of events
   for(i = 1; i < EVENTS_LIST; i++) {
+    // saving event values and remove that event after
   	aux_time = events->_time;
+    arrival_time = events->_arrival_time;
     aux_type = events->type;
     events = rem(events);
+
     if (aux_type == ARRIVAL_PC) { // PC arrival event
-      fprintf(stdout, "ARRIVAL_PC\n"); //DEBUG
+      //fprintf(stdout, "ARRIVAL_PC\n"); //DEBUG
+      arrival_time = aux_time;
       arrival_events++;  // counting the arrival events
-      if (channels < M) { // if the channels aren't full
-      fprintf(stderr, "\t\t\tPC_CHANNELS available - channels = %d\n", channels); //DEBUG
-        channels++; // A channel serves the call
+      if (channels_pc < M) { // if the channels_pc aren't full
+        //fprintf(stderr, "\t\t\tPC_CHANNELS available - channels_pc = %d\n", channels_pc); //DEBUG
+        channels_pc++; // A channel serves the call
         if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
-          events = addNewEvent(aux_time, DEPARTURE_PC, events);
-        } else { // Change to an ARRIVAL_EMERGENCY
-          events = addNewEvent(aux_time, ARRIVAL_INEM, events);
+          events = addNewEvent(aux_time, arrival_time, DEPARTURE_PC, events);
+        } else { // Change to an ARRIVAL_INEM
+          events = addNewEvent(aux_time, arrival_time, ARRIVAL_INEM, events);
         }
       } else if (buffer_size > 0) { // if the buffer has space
-        fprintf(stderr, "\t\t\tPC_BUFFER available - buffer_size = %d\n", buffer_size); //DEBUG
+        //fprintf(stderr, "\t\t\tPC_BUFFER available - buffer_size = %d\n", buffer_size); //DEBUG
           buffer_size--;
           buffer_events++;
-          buffer = add(buffer, ARRIVAL_PC, aux_time, tellDelay(avg_error, L-buffer_size, buffer_events));
-      } else { // if the channels and buffer are occupied we get a lost event
-        fprintf(stderr, "\t\t\tPC_LOSSES added\n"); //DEBUG
+          buffer = add(buffer, ARRIVAL_PC, aux_time, arrival_time, tellDelay(avg_error, L-buffer_size, buffer_events));
+      } else { // if the channels_pc and buffer are occupied we get a lost event
+        //fprintf(stderr, "\t\t\tPC_LOSSES added\n"); //DEBUG
         losses++;
       }
-
-      // Remove the actual arrival event and add a new one
-      events = addNewEvent(aux_time, ARRIVAL_PC, events);
+      calc_time = calcTime(ARRIVAL_PC);
+      events = add(events, ARRIVAL_PC, (aux_time + calc_time), (aux_time + calc_time), 0);
 
     } else if (aux_type == DEPARTURE_PC) { // Departure event
-      fprintf(stdout, "DEPARTURE_PC\n"); //DEBUG
-      channels--;
+      //fprintf(stdout, "DEPARTURE_PC\n"); //DEBUG
+      channels_pc--;
       if (buffer != NULL) { // As a channel is free now it can serve an event waiting in the buffer
-        channels++; // A channel serves the call
+        channels_pc++; // A channel serves the call
         if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
-          events = addNewEvent(buffer->_time, DEPARTURE_PC, events);
+          events = addNewEvent(buffer->_time, buffer->_arrival_time, DEPARTURE_PC, events);
         } else { // Change to an ARRIVAL_EMERGENCY
-          events = addNewEvent(buffer->_time, ARRIVAL_INEM, events);
+          events = addNewEvent(buffer->_time, buffer->_arrival_time, ARRIVAL_INEM, events);
         }
         delay_time += aux_time - buffer->_time;
         buffer = rem(buffer);
@@ -230,44 +230,47 @@ int main(int argc, char* argv[]) {
       }
 
     } else if (aux_type == ARRIVAL_INEM) {
-      fprintf(stderr, "ARRIVAL_INEM\n"); //DEBUG
+      //fprintf(stderr, "ARRIVAL_INEM\n"); //DEBUG
       inem_events++;  // Counting the arrival events
-  		if (channels_inem < M_INEM) { // If the channels aren't full
-        events = addNewEvent(aux_time, DEPARTURE_INEM, events);
+      //fprintf(stderr, "delay_pc_inem = %f\n", delay_pc_inem); //DEBUG
+  		if (channels_inem < M_INEM) { // If the channels_inem aren't full
+        events = addNewEvent(aux_time, arrival_time, DEPARTURE_INEM, events);
         channels_inem++; // A channel serves the call
-        channels--; // One channel from PC becomes free, because passes the call to INEM
+        channels_pc--; // One channel from PC becomes free, because passes the call to INEM
         if (buffer != NULL) {
-          channels++; // A channel serves the call
+          channels_pc++; // A channel serves the call
           if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
-            events = addNewEvent(buffer->_time, DEPARTURE_PC, events);
+            events = addNewEvent(buffer->_time, buffer->_arrival_time, DEPARTURE_PC, events);
           } else { // Change to an ARRIVAL_INEM
-            events = addNewEvent(buffer->_time, ARRIVAL_INEM, events);
+            events = addNewEvent(buffer->_time, buffer->_arrival_time, ARRIVAL_INEM, events);
           }
+          delay_time += aux_time - buffer->_time;
           buffer = rem(buffer);
           buffer_size++;
         }
+        delay_pc_inem += aux_time - arrival_time;
   		} else { // Otherwise, the event needs to wait on buffer
-        buffer_inem = add(buffer_inem, ARRIVAL_INEM, aux_time, 0);
-        fprintf(stderr, "\n\nENTROU NO BUFFER INEM\n");
+        buffer_inem = add(buffer_inem, ARRIVAL_INEM, aux_time, arrival_time, 0);
+        //fprintf(stderr, "\n\nENTROU NO BUFFER INEM\n"); //DEBUG
       }
 
     } else if (aux_type == DEPARTURE_INEM) { // It's a DEPARTURE_INEM, what means that the call is transfered to INEM
-      fprintf(stdout, "DEPARTURE_INEM\n"); //DEBUG
+      //fprintf(stdout, "DEPARTURE_INEM\n"); //DEBUG
       if (buffer_inem != NULL) { // As a channel is free now, it can serve an event waiting in the buffer_inem
-        events = addNewEvent(aux_time, DEPARTURE_INEM, events);
-        channels--;
+        events = addNewEvent(aux_time, buffer_inem->_arrival_time, DEPARTURE_INEM, events);
+        delay_pc_inem += aux_time - buffer_inem->_arrival_time;
+        channels_pc--;
         if (buffer != NULL) {
-          channels++; // A channel serves the call
+          channels_pc++; // A channel serves the call
           if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
-            events = addNewEvent(buffer->_time, DEPARTURE_PC, events);
+            events = addNewEvent(buffer->_time, buffer->_arrival_time, DEPARTURE_PC, events);
           } else { // Change to an ARRIVAL_INEM
-            events = addNewEvent(buffer->_time, ARRIVAL_INEM, events);
+            events = addNewEvent(buffer->_time, buffer->_arrival_time, ARRIVAL_INEM, events);
           }
+          delay_time += aux_time - buffer->_time;
           buffer = rem(buffer);
           buffer_size++;
         }
-        //delay_pc_inem += events->init - buffer_inem->_time;
-        //fprintf(stderr, "delay_pc_inem = %f\n", delay_pc_inem); //DEBUG
         buffer_inem = rem(buffer_inem);
       } else { // If the buffer is empty
         channels_inem--;
