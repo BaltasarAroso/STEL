@@ -10,24 +10,26 @@ list * rem (list * pointer){
 }
 
 // Function that add the new element in the list, ordered by _time
-list * add (list * pointer, int n_type, double n_time, double n_arrival_time, int buffer_positions){
+list * add (list * pointer, int n_type, double n_time, double n_arrival_time, double n_predicted_time, int n_buffer_elements){
 	list * lap = pointer;
 	list * ap_aux, * ap_next;
 	if(pointer == NULL) {
 		pointer = (list *) malloc(sizeof (list));
 		pointer -> next = NULL;
 		pointer -> type = n_type;
-		pointer -> buffer_positions = n_buffer_positions;
 		pointer -> _time = n_time;
 		pointer -> _arrival_time = n_arrival_time;
+		pointer -> _predicted_time = n_predicted_time;
+		pointer -> buffer_elements = n_buffer_elements;
 		return pointer;
 	} else {
 		if (pointer->_time > n_time) {
 	        ap_aux = (list *) malloc(sizeof (list));
 	        ap_aux -> type = n_type;
-					ap_aux -> buffer_positions = n_buffer_positions;
           ap_aux -> _time = n_time;
 					ap_aux -> _arrival_time = n_arrival_time;
+					ap_aux -> _predicted_time = n_predicted_time;
+					ap_aux -> buffer_elements = n_buffer_elements;
           ap_aux -> next = (struct list *) pointer;
           return ap_aux;
 	  }
@@ -49,9 +51,10 @@ list * add (list * pointer, int n_type, double n_time, double n_arrival_time, in
 			pointer -> next = NULL;
 		}
 		pointer -> type = n_type;
-		pointer -> buffer_positions = n_buffer_positions;
 		pointer -> _time = n_time;
 		pointer -> _arrival_time = n_arrival_time;
+		pointer -> _predicted_time = n_predicted_time;
+		pointer -> buffer_elements = n_buffer_elements;
 		return lap;
 	}
 }
@@ -62,7 +65,9 @@ void print_elems (list * pointer){
 		printf("empty list!\n");
 	} else {
 		while(pointer != NULL) {
-			printf("type=%d\t_time=%lf\n", pointer -> type, pointer -> _time);
+			printf("type=%d\t_time=%lf\t_arrival_time=%lf\t_predicted_time=%lf\tbuffer_elements=%d\n",
+			pointer -> type, pointer -> _time, pointer -> _arrival_time, pointer -> _predicted_time, pointer -> buffer_elements);
+
 			pointer = (list *)pointer -> next;
 		}
 	}

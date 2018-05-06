@@ -10,5 +10,5 @@ $(file): src/$(file).c lib/linked_list.o
 	$(CC) src/$(file).c lib/linked_list.o -o $(file) $(CFLAGS) $(LDLIBS)
 
 clean:
-	rm -f $(file) src/*.o
+	rm -f $(file) src/*.o  error*.csv
 	clear
