@@ -184,6 +184,8 @@ int saveInCSV(char* filename, int* histogram, int hist_size, int hist_type, int 
 }
 
 int main(int argc, char* argv[]) {
+
+  // sensitivity analysis variables
   int min = 0, max = 0, jump = 0, size = 0, k = 0, j = 0, flag_sensitivity = 0;
   int* lambda_values = NULL;
   double* delays = NULL;
@@ -218,7 +220,7 @@ int main(int argc, char* argv[]) {
     jump = 0;
   }
 
-
+  // sensitivity analysis cycle (with a no answer before, there's only one entry in the cycle)
   for (k = min; k <= max; k += jump) {
     if (flag_sensitivity) {
       lambda_values[j] = k;
@@ -261,7 +263,7 @@ int main(int argc, char* argv[]) {
 
     events = add(events, ARRIVAL_PC, aux_time, arrival_time, 0, 0);
 
-    // We process the list of events
+    // processing the list of events
     for(i = 1; i < EVENTS_LIST; i++) {
       // saving event values and remove that event after
     	aux_time = events->_time;
@@ -270,7 +272,6 @@ int main(int argc, char* argv[]) {
       events = rem(events);
 
       if (aux_type == ARRIVAL_PC) { // PC arrival event
-        //fprintf(stdout, "ARRIVAL_PC\n"); //DEBUG
         arrival_time = aux_time;
         arrival_events++;  // counting the arrival events
         if (channels_pc < M) { // if the channels_pc aren't full
@@ -292,7 +293,6 @@ int main(int argc, char* argv[]) {
         events = add(events, ARRIVAL_PC, (aux_time + calc_time), (aux_time + calc_time), 0, 0);
 
       } else if (aux_type == DEPARTURE_PC) { // Departure event
-        //fprintf(stdout, "DEPARTURE_PC\n"); //DEBUG
         channels_pc--;
         if (buffer != NULL) { // As a channel is free now it can serve an event waiting in the buffer
           channels_pc++; // A channel serves the call
@@ -345,7 +345,6 @@ int main(int argc, char* argv[]) {
         }
 
       } else if (aux_type == ARRIVAL_INEM) {
-        //fprintf(stderr, "ARRIVAL_INEM\n"); //DEBUG
         inem_events++;  // Counting the arrival events
     		if (channels_inem < M_INEM) { // If the channels_inem aren't full
           events = addNewEvent(aux_time, arrival_time, DEPARTURE_INEM, events, lambda);
@@ -406,7 +405,6 @@ int main(int argc, char* argv[]) {
         }
 
       } else if (aux_type == DEPARTURE_INEM) { // It's a DEPARTURE_INEM, what means that the call is transfered to INEM
-        //fprintf(stdout, "DEPARTURE_INEM\n"); //DEBUG
         if (buffer_inem != NULL) { // As a channel is free now, it can serve an event waiting in the buffer_inem
           events = addNewEvent(aux_time, buffer_inem->_arrival_time, DEPARTURE_INEM, events, lambda);
           delay_pc_inem += aux_time - buffer_inem->_arrival_time;
