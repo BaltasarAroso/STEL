@@ -208,9 +208,9 @@ int main(int argc, char* argv[]) {
   histogram_delay = (int*)calloc(1, sizeof(int));
 
   // associate filename to histogram_prevision
-  //strcat(filename_prevision, argv[2]);
-  //histogram_prevision_positive = (int*)calloc(1, sizeof(int));
-  //histogram_prevision_negative = (int*)calloc(1, sizeof(int));
+  strcat(filename_prevision, argv[2]);
+  histogram_prevision_positive = (int*)calloc(1, sizeof(int));
+  histogram_prevision_negative = (int*)calloc(1, sizeof(int));
 
   events = add(events, ARRIVAL_PC, aux_time, arrival_time, 0, 0);
 
@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
     events = rem(events);
 
     if (aux_type == ARRIVAL_PC) { // PC arrival event
-      fprintf(stdout, "ARRIVAL_PC\n"); //DEBUG
+      //fprintf(stdout, "ARRIVAL_PC\n"); //DEBUG
       arrival_time = aux_time;
       arrival_events++;  // counting the arrival events
       if (channels_pc < M) { // if the channels_pc aren't full
@@ -237,12 +237,6 @@ int main(int argc, char* argv[]) {
           buffer = add(buffer, ARRIVAL_PC, aux_time, arrival_time, avg_delay*(L-buffer_size), L-buffer_size);
           buffer_size--;
           buffer_events++;
-          fprintf(stderr, "\tbuffer_events = %d\n", buffer_events); //DEBUG
-          fprintf(stderr, "\tbuffer_positions = %d\n", L-buffer_size); //DEBUG
-          fprintf(stderr, "\tavg_delay = %lf\n", avg_delay*60); //DEBUG
-          fprintf(stderr, "\n\n\t\t\t\t************** BUFFER **************\t\t\t\t\n\n");
-          print_elems(buffer);
-          fprintf(stderr, "\n\n\t\t\t\t************** END **************\t\t\t\t\n\n");
       } else { // if the channels_pc and buffer are occupied we get a lost event
         losses++;
       }
@@ -251,7 +245,7 @@ int main(int argc, char* argv[]) {
       events = add(events, ARRIVAL_PC, (aux_time + calc_time), (aux_time + calc_time), 0, 0);
 
     } else if (aux_type == DEPARTURE_PC) { // Departure event
-      fprintf(stdout, "DEPARTURE_PC\n"); //DEBUG
+      //fprintf(stdout, "DEPARTURE_PC\n"); //DEBUG
       channels_pc--;
       if (buffer != NULL) { // As a channel is free now it can serve an event waiting in the buffer
         channels_pc++; // A channel serves the call
@@ -270,11 +264,11 @@ int main(int argc, char* argv[]) {
         /*****************************/
         delay_time += aux_time - buffer->_time;
 
-        /* add values to histogram_prevision *
+        /* add values to histogram_prevision */
         new_time = (aux_time - buffer->_time) / (float) (buffer->buffer_elements + 0.5);
         avg_delay = avg_delay - avg_delay / (float) WINDOW + new_time / (float) WINDOW;
         index_prevision = (int) (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
-        fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
+        //fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
         //index_prevision += ZERO;
         if (index_prevision < 0) {
           if ((histogram_prevision_negative = insertValuesInHistogram(index_prevision, &hist_size_prevision_negative, histogram_prevision_negative)) == NULL) {
@@ -287,14 +281,14 @@ int main(int argc, char* argv[]) {
             return -1;
           }
         }
-        *************************************/
+        /*************************************/
 
         buffer = rem(buffer);
         buffer_size++;
       }
 
     } else if (aux_type == ARRIVAL_INEM) {
-      fprintf(stderr, "ARRIVAL_INEM\n"); //DEBUG
+      //fprintf(stderr, "ARRIVAL_INEM\n"); //DEBUG
       inem_events++;  // Counting the arrival events
       //fprintf(stderr, "delay_pc_inem = %f\n", delay_pc_inem); //DEBUG
   		if (channels_inem < M_INEM) { // If the channels_inem aren't full
@@ -318,11 +312,11 @@ int main(int argc, char* argv[]) {
           /*****************************/
           delay_time += aux_time - buffer->_time;
 
-          /* add values to histogram_prevision *
+          /* add values to histogram_prevision */
           new_time = (aux_time - buffer->_time) / (float) (buffer->buffer_elements + 0.5);
           avg_delay = avg_delay - avg_delay / (float) WINDOW + new_time / (float) WINDOW;
           index_prevision = (int) (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
-          fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
+          //fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
           //index_prevision += ZERO;
           if (index_prevision < 0) {
             if ((histogram_prevision_negative = insertValuesInHistogram(index_prevision, &hist_size_prevision_negative, histogram_prevision_negative)) == NULL) {
@@ -335,7 +329,7 @@ int main(int argc, char* argv[]) {
               return -1;
             }
           }
-          *************************************/
+          /*************************************/
 
           buffer = rem(buffer);
           buffer_size++;
@@ -347,7 +341,7 @@ int main(int argc, char* argv[]) {
       }
 
     } else if (aux_type == DEPARTURE_INEM) { // It's a DEPARTURE_INEM, what means that the call is transfered to INEM
-      fprintf(stdout, "DEPARTURE_INEM\n"); //DEBUG
+      //fprintf(stdout, "DEPARTURE_INEM\n"); //DEBUG
       if (buffer_inem != NULL) { // As a channel is free now, it can serve an event waiting in the buffer_inem
         events = addNewEvent(aux_time, buffer_inem->_arrival_time, DEPARTURE_INEM, events);
         delay_pc_inem += aux_time - buffer_inem->_arrival_time;
@@ -369,11 +363,11 @@ int main(int argc, char* argv[]) {
           /*****************************/
           delay_time += aux_time - buffer->_time;
 
-          /* add values to histogram_prevision *
+          /* add values to histogram_prevision */
           new_time = (aux_time - buffer->_time) / (float) (buffer->buffer_elements + 0.5);
           avg_delay = avg_delay - avg_delay / (float) WINDOW + new_time / (float) WINDOW;
           index_prevision = (int) (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
-          fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
+          //fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
           //index_prevision += ZERO;
           if (index_prevision < 0) {
             if ((histogram_prevision_negative = insertValuesInHistogram(index_prevision, &hist_size_prevision_negative, histogram_prevision_negative)) == NULL) {
@@ -386,7 +380,7 @@ int main(int argc, char* argv[]) {
               return -1;
             }
           }
-          *************************************/
+          /*************************************/
 
           buffer = rem(buffer);
           buffer_size++;
@@ -407,23 +401,23 @@ int main(int argc, char* argv[]) {
   free(histogram_delay);
   /******************************/
 
-  /* save histogram_prevision in file.csv *
+  /* save histogram_prevision in file.csv */
   if(saveInCSV(filename_prevision, histogram_prevision_negative, hist_size_prevision_negative, PREVISION, NEGATIVE) < 0) {
     perror("saveInCSV");
     return -1;
   }
   fprintf(stdout, "\tFile \"%s\" with negative values saved successfully\n\n", filename_prevision);
   free(histogram_prevision_negative);
-  ******************************/
+  /******************************/
 
-  /* save histogram_prevision in file.csv *
+  /* save histogram_prevision in file.csv */
   if(saveInCSV(filename_prevision, histogram_prevision_positive, hist_size_prevision_positive, PREVISION, POSITIVE) < 0) {
     perror("saveInCSV");
     return -1;
   }
   fprintf(stdout, "\tFile \"%s\" with positive values saved successfully\n\n", filename_prevision);
   free(histogram_prevision_positive);
-  ******************************/
+  /******************************/
 
   fprintf(stdout, "\nProbability of a call being delayed at the entry of the PC system (buffer events = %d): %.3f%%\n",
                      buffer_events, buffer_events / (float)(arrival_events) * 100);
