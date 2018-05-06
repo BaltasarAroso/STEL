@@ -113,19 +113,19 @@ double calculatePredictedTime(double avg_delay, int buffer_positions, int buffer
   return 0;
 }
 
-double calculateStandardDeviation(double hist_prevision_values[]) {
+double calculateStandardDeviation(double hist_prevision_values[], int delay_count) {
   int i = 0;
   double sum = 0.0, avg = 0.0, standard_deviation = 0.0;
 
-  for (i = 0; i < 10; i++) {
+  for (i = 0; i < delay_count; i++) {
       sum += hist_prevision_values[i];
   }
-  avg = sum / 10;
-  for (i = 0; i < 10; i++) {
+  avg = sum / delay_count;
+  for (i = 0; i < delay_count; i++) {
       standard_deviation += pow(hist_prevision_values[i] - avg, 2);
   }
 
-  return sqrt(standard_deviation / 10);
+  return sqrt(standard_deviation / delay_count);
 }
 
 int* insertValuesInHistogram (int index, int* hist_size, int* histogram) {
@@ -478,7 +478,7 @@ int main(int argc, char* argv[]) {
                     relative_error / (float)(buffer_events * 60), relative_error / (float)(buffer_events));
 
   fprintf(stdout, "\nStandard deviation of the waiting prediction time in the input buffer: %.3f min = %.3f sec\n",
-                    calculateStandardDeviation(hist_prevision_values) / 60, calculateStandardDeviation(hist_prevision_values));
+                    calculateStandardDeviation(hist_prevision_values, delay_count) / 60, calculateStandardDeviation(hist_prevision_values, delay_count));
 
   fprintf(stderr, "\n\t*****************************************\n");
 
