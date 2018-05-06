@@ -20,7 +20,6 @@
 #define SIGMA 0.25 // Standard deviation = 15s
 
 // defines for auxiliar code
-#define ZERO 100
 #define DELAY 1
 #define PREVISION 2
 #define POSITIVE 7
@@ -36,40 +35,13 @@
 
 // functions
 
-int saveInCSV(char* filename, int* histogram, int hist_size, int hist_type, int value_type) {
-  FILE *CSV;
-  int i;
-  fprintf(stdout, "\n\n\tSaving the histogram in \"%s\"\n", filename);
-
-  CSV = fopen(filename,"a");
-  if(CSV == NULL) {
-    perror("fopen");
-    return -1;
+// Function that generates a random event that could be an emergency or not (60% prob of emeregency)
+int arrivalOrEmergency () {
+  if ((rand() % 100) < 60) {
+  	return ARRIVAL_INEM;
+  } else {
+  	return ARRIVAL_PC;
   }
-
-  // delay histogram
-  if (hist_type == DELAY) {
-    fprintf(CSV, "Index, Delay\n");
-    for (i = 0; i < hist_size; i++) {
-      fprintf(CSV, "%d, %d\n", i, histogram[i]);
-    }
-
-  // prevision histogram
-  } else if (value_type == NEGATIVE){
-    fprintf(CSV, "Index, Prevision\n");
-    for (i = hist_size - 1; i > 0; i--) {
-      fprintf(CSV, "%d, %d\n", -i, histogram[i]);
-    }
-  } else if (value_type == POSITIVE){
-    //fprintf(CSV, "Index, Prevision\n");
-    for (i = 0; i < hist_size; i++) {
-      fprintf(CSV, "%d, %d\n", i, histogram[i]);
-    }
-  }
-
-  fclose(CSV);
-
-  return 0;
 }
 
 double boxMuller(void) {
@@ -132,30 +104,28 @@ list * addNewEvent(double t, double arrival_time, int type, list* event_list) {
   return event_list;
 }
 
-// Function to tell the user the mean time he will have to wait based on system load
-double tellDelay(double avg_delay, int buffer_positions, int buffer_events) {
-  /*if (buffer_positions != 0 && buffer_events != 0 && buffer_events > buffer_positions) {
-    fprintf(stderr, "\t\t\t\tFIRST\n");
-    return (avg_delay * (buffer_events - buffer_positions) + (buffer_positions * 0.5 * DM) * buffer_positions) / (float) buffer_events;
-  } else if (buffer_positions != 0 && buffer_events != 0) {
-    fprintf(stderr, "\t\t\t\tSECOND\n");
+double calculatePredictedTime(double avg_delay, int buffer_positions, int buffer_events) {
+  if (buffer_events == buffer_positions) {
     return buffer_positions * 0.5 * DM;
-  }*/
-  /*if (buffer_events == buffer_positions) {
-    return buffer_positions * 0.5 * DM;
-  } else {*/
+  } else {
     return avg_delay * buffer_positions;
-  //}
-  //return 0;
+  }
+  return 0;
 }
 
-// Function that generates a random event that could be an emergency or not (60% prob of emeregency)
-int arrivalOrEmergency () {
-  if ((rand() % 100) < 60) {
-  	return ARRIVAL_INEM;
-  } else {
-  	return ARRIVAL_PC;
+double calculateStandardDeviation(double hist_prevision_values[]) {
+  int i = 0;
+  double sum = 0.0, avg = 0.0, standard_deviation = 0.0;
+
+  for (i = 0; i < 10; i++) {
+      sum += hist_prevision_values[i];
   }
+  avg = sum / 10;
+  for (i = 0; i < 10; i++) {
+      standard_deviation += pow(hist_prevision_values[i] - avg, 2);
+  }
+
+  return sqrt(standard_deviation / 10);
 }
 
 int* insertValuesInHistogram (int index, int* hist_size, int* histogram) {
@@ -177,11 +147,47 @@ int* insertValuesInHistogram (int index, int* hist_size, int* histogram) {
   return histogram;
 }
 
+int saveInCSV(char* filename, int* histogram, int hist_size, int hist_type, int value_type) {
+  FILE *CSV;
+  int i;
+  fprintf(stdout, "\n\n\tSaving the histogram in \"%s\"\n", filename);
+
+  CSV = fopen(filename,"a");
+  if(CSV == NULL) {
+    perror("fopen");
+    return -1;
+  }
+
+  // delay histogram
+  if (hist_type == DELAY) {
+    fprintf(CSV, "Index, Delay\n");
+    for (i = 0; i < hist_size; i++) {
+      fprintf(CSV, "%d, %d\n", i, histogram[i]);
+    }
+
+  // prevision histogram
+  } else if (value_type == NEGATIVE){
+    fprintf(CSV, "Index, Prevision\n");
+    for (i = hist_size - 1; i > 0; i--) {
+      fprintf(CSV, "%d, %d\n", -i, histogram[i]);
+    }
+  } else if (value_type == POSITIVE){
+    //fprintf(CSV, "Index, Prevision\n");
+    for (i = 0; i < hist_size; i++) {
+      fprintf(CSV, "%d, %d\n", i, histogram[i]);
+    }
+  }
+
+  fclose(CSV);
+
+  return 0;
+}
+
 int main(int argc, char* argv[]) {
 
   // useful variables
-  int i = 0, aux_type = 0, losses = 0;
-  double aux_time = 0, arrival_time = 0, calc_time = 0, new_time = 0, delay_time = 0, delay_pc_inem = 0;
+  int i = 0, aux_type = 0, losses = 0, delay_count = 0;
+  double aux_time = 0, arrival_time = 0, calc_time = 0, delay_time = 0, delay_pc_inem = 0;
 
   // histogram_delay
   int *histogram_delay = NULL, index_delay = 0, hist_size_delay = 0;
@@ -190,7 +196,8 @@ int main(int argc, char* argv[]) {
   // histogram_prevision
   int index_prevision = 0, hist_size_prevision_negative = 0, hist_size_prevision_positive = 0;
   int *histogram_prevision_positive = NULL, *histogram_prevision_negative = NULL;
-  double avg_delay = 0;
+  double avg_delay = 0, new_time = 0, absolute_error = 0, relative_error = 0;
+  double* hist_prevision_values = NULL;
   char filename_prevision[50] = "";
 
   // PC variables
@@ -211,6 +218,7 @@ int main(int argc, char* argv[]) {
   strcat(filename_prevision, argv[2]);
   histogram_prevision_positive = (int*)calloc(1, sizeof(int));
   histogram_prevision_negative = (int*)calloc(1, sizeof(int));
+  hist_prevision_values = (double*)calloc(1, sizeof(double));
 
   events = add(events, ARRIVAL_PC, aux_time, arrival_time, 0, 0);
 
@@ -234,7 +242,7 @@ int main(int argc, char* argv[]) {
           events = addNewEvent(aux_time, arrival_time, ARRIVAL_INEM, events);
         }
       } else if (buffer_size > 0) { // if the buffer has space
-          buffer = add(buffer, ARRIVAL_PC, aux_time, arrival_time, avg_delay*(L-buffer_size), L-buffer_size);
+          buffer = add(buffer, ARRIVAL_PC, aux_time, arrival_time, calculatePredictedTime(avg_delay, L-buffer_size, buffer_events), L-buffer_size);
           buffer_size--;
           buffer_events++;
       } else { // if the channels_pc and buffer are occupied we get a lost event
@@ -267,9 +275,19 @@ int main(int argc, char* argv[]) {
         /* add values to histogram_prevision */
         new_time = (aux_time - buffer->_time) / (float) (buffer->buffer_elements + 0.5);
         avg_delay = avg_delay - avg_delay / (float) WINDOW + new_time / (float) WINDOW;
+
+        // for the calculateStandardDeviation function
+        delay_count++;
+        hist_prevision_values = (double*)realloc(hist_prevision_values, (delay_count) * sizeof(double));
+        hist_prevision_values[delay_count-1] = 60 * (buffer->_predicted_time - (aux_time - buffer->_time));
+        if (hist_prevision_values == NULL) {
+          perror("realloc");
+          return -1;
+        }
+
         index_prevision = (int) (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
-        //fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
-        //index_prevision += ZERO;
+        absolute_error += fabs(60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
+        relative_error += (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
         if (index_prevision < 0) {
           if ((histogram_prevision_negative = insertValuesInHistogram(index_prevision, &hist_size_prevision_negative, histogram_prevision_negative)) == NULL) {
             fprintf(stderr, "\n\n\t\t!!! ERROR Inserting Values In Histogram Prevision Negative !!!\n\n");
@@ -290,7 +308,6 @@ int main(int argc, char* argv[]) {
     } else if (aux_type == ARRIVAL_INEM) {
       //fprintf(stderr, "ARRIVAL_INEM\n"); //DEBUG
       inem_events++;  // Counting the arrival events
-      //fprintf(stderr, "delay_pc_inem = %f\n", delay_pc_inem); //DEBUG
   		if (channels_inem < M_INEM) { // If the channels_inem aren't full
         events = addNewEvent(aux_time, arrival_time, DEPARTURE_INEM, events);
         channels_inem++; // A channel serves the call
@@ -315,9 +332,19 @@ int main(int argc, char* argv[]) {
           /* add values to histogram_prevision */
           new_time = (aux_time - buffer->_time) / (float) (buffer->buffer_elements + 0.5);
           avg_delay = avg_delay - avg_delay / (float) WINDOW + new_time / (float) WINDOW;
+
+          // for the calculateStandardDeviation function
+          delay_count++;
+          hist_prevision_values = (double*)realloc(hist_prevision_values, (delay_count) * sizeof(double));
+          hist_prevision_values[delay_count-1] = 60 * (buffer->_predicted_time - (aux_time - buffer->_time));
+          if (hist_prevision_values == NULL) {
+            perror("realloc");
+            return -1;
+          }
+
           index_prevision = (int) (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
-          //fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
-          //index_prevision += ZERO;
+          absolute_error += fabs(60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
+          relative_error += (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
           if (index_prevision < 0) {
             if ((histogram_prevision_negative = insertValuesInHistogram(index_prevision, &hist_size_prevision_negative, histogram_prevision_negative)) == NULL) {
               fprintf(stderr, "\n\n\t\t!!! ERROR Inserting Values In Histogram Prevision Negative !!!\n\n");
@@ -337,7 +364,6 @@ int main(int argc, char* argv[]) {
         delay_pc_inem += aux_time - arrival_time;
   		} else { // Otherwise, the event needs to wait on buffer
         buffer_inem = add(buffer_inem, ARRIVAL_INEM, aux_time, arrival_time, 0, 0);
-        //fprintf(stderr, "\n\nENTROU NO BUFFER INEM\n"); //DEBUG
       }
 
     } else if (aux_type == DEPARTURE_INEM) { // It's a DEPARTURE_INEM, what means that the call is transfered to INEM
@@ -366,9 +392,19 @@ int main(int argc, char* argv[]) {
           /* add values to histogram_prevision */
           new_time = (aux_time - buffer->_time) / (float) (buffer->buffer_elements + 0.5);
           avg_delay = avg_delay - avg_delay / (float) WINDOW + new_time / (float) WINDOW;
+
+          // for the calculateStandardDeviation function
+          delay_count++;
+          hist_prevision_values = (double*)realloc(hist_prevision_values, (delay_count) * sizeof(double));
+          hist_prevision_values[delay_count-1] = 60 * (buffer->_predicted_time - (aux_time - buffer->_time));
+          if (hist_prevision_values == NULL) {
+            perror("realloc");
+            return -1;
+          }
+
           index_prevision = (int) (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
-          //fprintf(stderr, "\tindex_prevision = %d\n", index_prevision); //DEBUG
-          //index_prevision += ZERO;
+          absolute_error += fabs(60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
+          relative_error += (60 * (buffer->_predicted_time - (aux_time - buffer->_time)));
           if (index_prevision < 0) {
             if ((histogram_prevision_negative = insertValuesInHistogram(index_prevision, &hist_size_prevision_negative, histogram_prevision_negative)) == NULL) {
               fprintf(stderr, "\n\n\t\t!!! ERROR Inserting Values In Histogram Prevision Negative !!!\n\n");
@@ -430,6 +466,24 @@ int main(int argc, char* argv[]) {
 
   fprintf(stdout, "\nAverage delay time of calls from PC to INEM: %.3f min = %.3f sec\n\n",
                      delay_pc_inem / (float)inem_events, delay_pc_inem / (float)(inem_events) * 60);
+
+  /*********************************************************************************************************************************/
+
+  fprintf(stderr, "\n\t***** Waiting Time Prediction Error *****\n");
+
+  fprintf(stdout, "\nAverage of the absolute error on the waiting prediction time in the input buffer: %.3f min = %.3f sec\n",
+                     absolute_error / (float)(buffer_events * 60), absolute_error / (float)(buffer_events));
+
+  fprintf(stdout, "\nAverage of the relative error on the waiting prediction time in the input buffer: %.3f min = %.3f sec\n",
+                    relative_error / (float)(buffer_events * 60), relative_error / (float)(buffer_events));
+
+  fprintf(stdout, "\nStandard deviation of the waiting prediction time in the input buffer: %.3f min = %.3f sec\n",
+                    calculateStandardDeviation(hist_prevision_values) / 60, calculateStandardDeviation(hist_prevision_values));
+
+  fprintf(stderr, "\n\t*****************************************\n");
+
+
+
 
   return 0;
 }
