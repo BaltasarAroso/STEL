@@ -10,10 +10,10 @@
 // defines for input values
 #define EVENTS_LIST 1000000
 #define LAMBDA 600 // 600 calls/hour
-#define L 6 // Finite buffer size of PC
+#define L 5 // Finite buffer size of PC
 #define DM 1.5 // Mean time of exponential distribution (PC calls)
-#define M 18 // service positions at PC
-#define M_INEM 18 // service positions at INEM
+#define M_PC 19 // service positions at PC
+#define M_INEM 19 // service positions at INEM
 
 // defines for gaussian function
 #define MU 0.75 // Mean = 45s
@@ -125,7 +125,7 @@ double calculateStandardDeviation(double hist_prevision_values[], int delay_coun
       standard_deviation += pow(hist_prevision_values[i] - avg, 2);
   }
 
-  return sqrt(standard_deviation / delay_count);
+  return sqrt(standard_deviation / (delay_count - 1));
 }
 
 int* insertValuesInHistogram (int index, int* hist_size, int* histogram) {
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
       if (aux_type == ARRIVAL_PC) { // PC arrival event
         arrival_time = aux_time;
         arrival_events++;  // counting the arrival events
-        if (channels_pc < M) { // if the channels_pc aren't full
+        if (channels_pc < M_PC) { // if the channels_pc aren't full
           channels_pc++; // A channel serves the call
           if (arrivalOrEmergency() == ARRIVAL_PC) { // Stay as an ARRIVAL from PC
             events = addNewEvent(aux_time, arrival_time, DEPARTURE_PC, events, lambda);
@@ -492,6 +492,8 @@ int main(int argc, char* argv[]) {
     free(histogram_prevision_positive);
     /******************************/
 
+    fprintf(stderr, "\n\n *  Results given the resources: L = %d, #buffer_PC = %d, #buffer_INEM = %d \n", L, M_PC, M_INEM);
+
     fprintf(stdout, "\nProbability of a call being delayed at the entry of the PC system (buffer events = %d): %.3f%%\n",
                        buffer_events, buffer_events / (float)(arrival_events) * 100);
 
@@ -501,12 +503,12 @@ int main(int argc, char* argv[]) {
     fprintf(stdout, "\nAverage delay time of calls in the PC system entry: %.3f min = %.3f sec\n",
                        delay_time / (float)buffer_events, delay_time / (float)buffer_events * 60);
 
-    fprintf(stdout, "\nAverage delay time of calls from PC to INEM: %.3f min = %.3f sec\n\n",
+    fprintf(stdout, "\nAverage delay time of calls from PC to INEM: %.3f min = %.3f sec\n",
                        delay_pc_inem / (float)inem_events, delay_pc_inem / (float)(inem_events) * 60);
 
-    /*********************************************************************************************************************************/
+    fprintf(stderr, "\n----------------------------------------------------------------------------------------------------------------\n\n");
 
-    fprintf(stderr, "\n\t***** Waiting Time Prediction Error *****\n");
+    fprintf(stderr, "\n\n *  Waiting Time Prediction Error \n");
 
     fprintf(stdout, "\nAverage of the absolute error on the waiting prediction time in the input buffer: %.3f min = %.3f sec\n",
                        absolute_error / (float)(buffer_events * 60), absolute_error / (float)(buffer_events));
@@ -517,7 +519,14 @@ int main(int argc, char* argv[]) {
     fprintf(stdout, "\nStandard deviation of the waiting prediction time in the input buffer: %.3f min = %.3f sec\n",
                       calculateStandardDeviation(hist_prevision_values, delay_count) / 60, calculateStandardDeviation(hist_prevision_values, delay_count));
 
-    fprintf(stderr, "\n\t*****************************************\n");
+    fprintf(stderr, "\n----------------------------------------------------------------------------------------------------------------\n\n");
+
+    fprintf(stderr, "\n *  Sensitivity Analysis for the %.0f calls/hour \n", lambda * 60);
+
+    fprintf(stdout, "\nIC(90%%): %.3f +- %.3f sec\n",
+                      delay_pc_inem / (float)(inem_events) * 60, 1.65 * (calculateStandardDeviation(hist_prevision_values, delay_count) / sqrt(delay_count)));
+
+    fprintf(stderr, "\n----------------------------------------------------------------------------------------------------------------\n\n");
 
     if (flag_sensitivity) {
       delays[j] = delay_pc_inem / (float)(inem_events) * 60;

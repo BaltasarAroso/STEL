@@ -7,7 +7,7 @@ typedef struct{
 	double _time;
 	double _arrival_time; // time scheduled when the event arrives into the PC
 	double _predicted_time; // predicted time that the event spends in the PC buffer
-	int buffer_elements; // number of elements that are in the PC buffer when this event arrives (including himself)
+	int buffer_elements; // number of elements that are in the PC buffer when this event arrives (excluding himself)
 	struct list * next;
 } list;
 
