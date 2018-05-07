@@ -4,7 +4,7 @@ CFLAGS=-Wall -I.
 CFLAGS+=-std=gnu99
 LDLIBS=-lm
 
-file=queues
+file=sys_calls
 
 $(file): src/$(file).c lib/linked_list.o
 	$(CC) src/$(file).c lib/linked_list.o -o $(file) $(CFLAGS) $(LDLIBS)
