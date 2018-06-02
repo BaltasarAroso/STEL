@@ -52,6 +52,7 @@ Considering that the sizing parameters are:
 - L (buffer size of the Civil Protection)
 - M_PC value (number of service workstations in the Civil Protection)
 - M_INEM value (number of service workstations in the INEM)
+
 configure the system to obtain these results:
 - Probability of a call being delayed at the entry of the PC system < 20%
 - Probability of a call being lost at the entry to the PC system < 1 %
