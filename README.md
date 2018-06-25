@@ -9,7 +9,7 @@ Compare the results obtained in the simulation with the theoretically predicted 
 
 **Note:** In the image `time_comparator.jpg` we can see that the first case is much more faster than the second one.
 
-## Execution
+## Usage
 ```
 git clone https://github.com/BaltasarAroso/STEL.git
 cd 1_PoissonCalls
@@ -30,7 +30,7 @@ Considering a queue represented by Kendall's notation M / M / m / L / K / FCFS i
 
 the code implemented as the porpused of calculate any case (Erlang-B, Erlang-C or Engset) considering the input values lambda, dm, m, L and K that are asked in the execution of the compiled file.
 
-## Execution
+## Usage
 ```
 git clone https://github.com/BaltasarAroso/STEL.git
 cd 2_WaitingList
@@ -66,7 +66,7 @@ Moreover, show the delay distribution of calls in the PC buffer in an histogram 
 
 To conclude, do the Sensitivity Analysis for different arrival rates (lambda) and show it in a graphic (_sensitivy.csv_), then find the confidence interval of 90% about the nominal situation of 600 calls/hour.
 
-## Execution
+## Usage
 ```
 git clone https://github.com/BaltasarAroso/STEL.git
 cd 3_EmergencyCallSystem
