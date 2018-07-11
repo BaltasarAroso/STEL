@@ -66,6 +66,8 @@ Moreover, show the delay distribution of calls in the PC buffer in an histogram 
 
 To conclude, do the Sensitivity Analysis for different arrival rates (lambda) and show it in a graphic (_sensitivy.csv_), then find the confidence interval of 90% about the nominal situation of 600 calls/hour.
 
+There's a detailed report about this simulation.
+
 ## Usage
 ```
 git clone https://github.com/BaltasarAroso/STEL.git
